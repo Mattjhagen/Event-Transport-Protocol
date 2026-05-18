@@ -86,3 +86,30 @@ export const ETPEventSchema = z.object({
 
 export type ETPEvent = z.infer<typeof ETPEventSchema>;
 export type EVT = ETPEvent;
+
+/**
+ * ETP Transport Bindings and Capabilities
+ */
+export const ETPCapabilitiesProtocol = z.object({
+  version: z.string(),
+  transports: z.array(z.enum(["http", "sse", "ws"])),
+  features: z.object({
+    replay: z.boolean(),
+    delta_compression: z.boolean(),
+    heartbeat_interval: z.number(),
+    max_replay_depth: z.number()
+  })
+});
+
+export type ETPCapabilities = z.infer<typeof ETPCapabilitiesProtocol>;
+
+/**
+ * ETP Synchronization Frames
+ */
+export type ETPSyncFrame = 
+  | { type: "snapshot.sync"; v: number; event: ETPEvent; fallback?: boolean }
+  | { type: "delta.sync"; v: number; eid: string; changes: Partial<ETPEvent>; event: ETPEvent; mutation_id?: string }
+  | { type: "replay.sync"; status: "start" | "end"; since: number; count: number }
+  | { type: "heartbeat"; t: number }
+  | { type: "error.sync"; code: string; msg: string }
+  | { type: "subscription.state"; state: "active" | "stale" | "recovering" };

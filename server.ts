@@ -7,7 +7,8 @@ import dotenv from "dotenv";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 
-import { ETPEventSchema, ETPEvent } from "./src/types";
+import { WebSocketServer } from "ws";
+import { ETPEventSchema, ETPEvent, ETPCapabilities } from "./src/types";
 import { detectPlatform } from "./src/lib/router";
 import { generateICS } from "./src/lib/ics";
 
@@ -17,13 +18,34 @@ const app = new Hono();
 const eventStore = new Map<string, ETPEvent>();
 const deltaHistory = new Map<string, any[]>(); // Stores deltas for replay
 const processedMutations = new Set<string>(); // For idempotency
-const subscribers = new Map<string, Set<(data: any) => void>>();
+
+// Generic subscriber type for transport neutrality
+type ETPHandler = (data: any) => void;
+const subscribers = new Map<string, Set<ETPHandler>>();
+
+/**
+ * --- ETP PROTOCOL METADATA ---
+ */
+
+app.get("/api/capabilities", (c) => {
+  const capabilities: ETPCapabilities = {
+    version: "0.1",
+    transports: ["http", "sse", "ws"],
+    features: {
+      replay: true,
+      delta_compression: false,
+      heartbeat_interval: 15,
+      max_replay_depth: 50
+    }
+  };
+  return c.json(capabilities);
+});
 
 /**
  * --- ETP API v0.1 ---
  */
 
-// GET /api/e/:id/stream: Subscribe to EID updates with Replay Support
+// GET /api/e/:id/stream: SSE Transport Binding
 app.get("/api/e/:id/stream", (c) => {
   const id = c.req.param("id");
   const event = eventStore.get(id);
@@ -36,44 +58,37 @@ app.get("/api/e/:id/stream", (c) => {
     c.header("Cache-Control", "no-cache");
     c.header("Connection", "keep-alive");
 
+    // Transport initialization frame handled below
+    const sendFrame = (data: any) => {
+      if (data.v) stream.write(`id: ${data.v}\n`);
+      stream.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
     // REPLAY SEMANTICS
     if (sinceVersion > 0 && sinceVersion < event.v) {
       const history = deltaHistory.get(id) || [];
       const missedDeltas = history.filter(d => d.v > sinceVersion);
       
       if (missedDeltas.length > 0) {
-        for (const delta of missedDeltas) {
-          await stream.write(`id: ${delta.v}\n`);
-          await stream.write(`data: ${JSON.stringify({ type: 'delta.sync', ...delta })}\n\n`);
-        }
+        missedDeltas.forEach(delta => sendFrame({ type: 'delta.sync', ...delta }));
       } else {
-        // Gap too large or history purged, send full snapshot
-        await stream.write(`id: ${event.v}\n`);
-        await stream.write(`data: ${JSON.stringify({ type: 'snapshot.sync', event, fallback: true })}\n\n`);
+        sendFrame({ type: 'snapshot.sync', event, fallback: true });
       }
     } else {
-      // Direct Snapshot
-      await stream.write(`id: ${event.v}\n`);
-      await stream.write(`data: ${JSON.stringify({ type: 'snapshot.sync', event })}\n\n`);
+      sendFrame({ type: 'snapshot.sync', event });
     }
 
-    const sendUpdate = (data: any) => {
-      stream.write(`id: ${data.v}\n`);
-      stream.write(`data: ${JSON.stringify(data)}\n\n`);
-    };
-
     if (!subscribers.has(id)) subscribers.set(id, new Set());
-    subscribers.get(id)!.add(sendUpdate);
+    subscribers.get(id)!.add(sendFrame);
 
-    // Keep connection alive
+    // Heartbeat
     const heartbeat = setInterval(() => {
-      stream.write(": heartbeat\n\n");
+      stream.write(`event: heartbeat\ndata: ${JSON.stringify({ t: Date.now() })}\n\n`);
     }, 15000);
 
     c.req.raw.signal.addEventListener("abort", () => {
       clearInterval(heartbeat);
-      subscribers.get(id)?.delete(sendUpdate);
-      if (subscribers.get(id)?.size === 0) subscribers.delete(id);
+      subscribers.get(id)?.delete(sendFrame);
     });
 
     while (!c.req.raw.signal.aborted) {
@@ -180,7 +195,7 @@ app.patch("/api/e/:id", async (c) => {
   history.push(delta);
   deltaHistory.set(id, history.slice(-50)); // Retention limit
 
-  // BROADCAST TO SUBSCRIBERS
+  // BROADCAST TO ALL TRANSPORTS
   const eidSubscribers = subscribers.get(id);
   if (eidSubscribers) {
     eidSubscribers.forEach(send => send(delta));
@@ -189,7 +204,91 @@ app.patch("/api/e/:id", async (c) => {
   return c.json(finalEvent);
 });
 
-// GET /api/e/:id: Fetch raw EVT object (supports EID or Alias)
+/**
+ * --- ETP WEBSOCKET BINDING ---
+ */
+
+function setupWebSocket(server: any) {
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (request: any, socket: any, head: any) => {
+    const url = new URL(request.url || '', `http://${request.headers.host}`);
+    if (url.pathname === '/api/etp-ws') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    }
+  });
+
+  wss.on('connection', (ws) => {
+    let currentEid: string | null = null;
+    let sendFrame: ETPHandler | null = null;
+
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        if (data.type === 'etp.subscribe') {
+          const { eid, since } = data;
+          const event = eventStore.get(eid);
+          
+          if (!event) {
+            ws.send(JSON.stringify({ type: 'error.sync', code: 'NOT_FOUND', msg: 'Event not found' }));
+            return;
+          }
+
+          // Unsubscribe from previous if any
+          if (currentEid && sendFrame) {
+            subscribers.get(currentEid)?.delete(sendFrame);
+          }
+
+          currentEid = eid;
+          sendFrame = (frame: any) => ws.send(JSON.stringify(frame));
+
+          // Send Replay/Snapshot
+          const sinceVersion = parseInt(since || "0");
+          if (sinceVersion > 0 && sinceVersion < event.v) {
+             const history = deltaHistory.get(eid) || [];
+             const missed = history.filter(d => d.v > sinceVersion);
+             if (missed.length > 0) {
+               missed.forEach(d => sendFrame!({ type: 'delta.sync', ...d }));
+             } else {
+               if (sendFrame) sendFrame({ type: 'snapshot.sync', event, fallback: true });
+             }
+          } else {
+             if (sendFrame) sendFrame({ type: 'snapshot.sync', event });
+          }
+
+          if (!subscribers.has(eid)) subscribers.set(eid, new Set());
+          subscribers.get(eid)!.add(sendFrame);
+          
+          ws.send(JSON.stringify({ type: 'subscription.state', state: 'active', eid }));
+        }
+      } catch (e) {
+        ws.send(JSON.stringify({ type: 'error.sync', code: 'MALFORMED', msg: 'Invalid ETP Frame' }));
+      }
+    });
+
+    const heartbeat = setInterval(() => {
+      if (ws.readyState === 1) { // 1 = OPEN
+        ws.send(JSON.stringify({ type: 'heartbeat', t: Date.now() }));
+      }
+    }, 15000);
+
+    ws.on('close', () => {
+      clearInterval(heartbeat);
+      if (currentEid && sendFrame) {
+        subscribers.get(currentEid)?.delete(sendFrame);
+      }
+    });
+  });
+
+  console.log("ETP WebSocket Binding Active at /api/etp-ws");
+}
+
+/**
+ * --- GET /api/e/:id: Fetch raw EVT object ---
+ */
 app.get("/api/e/:id", (c) => {
   const id = c.req.param("id");
   let event = eventStore.get(id);
@@ -302,10 +401,12 @@ async function main() {
   const port = 3000;
   console.log(`ETP Hono Router running at http://localhost:${port}`);
   
-  serve({
+  const server = serve({
     fetch: app.fetch,
     port: port
   });
+
+  setupWebSocket(server);
 }
 
 main();

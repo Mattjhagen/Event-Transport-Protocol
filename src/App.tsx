@@ -128,80 +128,148 @@ const LiveMutationDemo = () => {
   const [log, setLog] = useState<{msg: string, type: 'info' | 'sync' | 'error' | 'meta', v?: number}[]>([]);
   const [streamData, setStreamData] = useState<any[]>([]);
   const [isReplaying, setIsReplaying] = useState(false);
+  const [transport, setTransport] = useState<'sse' | 'ws'>('sse');
+  const [syncState, setSyncState] = useState<'IDLE' | 'SYNCHRONIZED' | 'REPLAYING' | 'STALE' | 'OFFLINE'>('IDLE');
+  const [nodeCapabilities, setNodeCapabilities] = useState<any>(null);
+  
   const eventSourceRef = useRef<EventSource | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
 
   const addLog = (msg: string, type: 'info' | 'sync' | 'error' | 'meta' = 'info', v?: number) => {
     setLog(prev => [{ msg, type, v }, ...prev].slice(0, 15));
   };
 
-  const subscribe = (since?: number) => {
-    if (!event) return;
-    
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
+  const fetchCapabilities = async () => {
+    try {
+      const res = await fetch("/api/capabilities");
+      const data = await res.json();
+      setNodeCapabilities(data);
+      addLog(`Capability Negotiated: ETP v${data.version}`, "meta");
+    } catch (e) {
+      addLog("Capability Negotiation Failed", "error");
     }
+  };
 
+  useEffect(() => {
+    fetchCapabilities();
+  }, []);
+
+  const subscribeSSE = (since?: number) => {
+    if (!event) return;
+    setSyncState('REPLAYING');
+    
     const url = `/api/e/${event.eid}/stream${since ? `?since=${since}` : ''}`;
-    const msg = since ? `Reconnecting Subscriber (since v${since})...` : `Initiating Subscriber Subscription...`;
-    addLog(msg, "info");
+    addLog(`INIT SSE TRANS-BIND (since v${since || 0})`, "info");
     
     const es = new EventSource(url);
     
     es.onmessage = (e) => {
       const data = JSON.parse(e.data);
-      if (data.type === 'snapshot.sync') {
-        const status = data.fallback ? 'FALLBACK RESYNC' : 'SNAPSHOT RECEIVED';
-        addLog(`${status} (v${data.event.v})`, "sync", data.event.v);
-        setEvent(data.event);
-        setIsReplaying(false);
-      } else if (data.type === 'delta.sync' || data.type === 'event.updated') {
-        addLog(`DELTA PROPAGATED (v${data.v})`, "sync", data.v);
-        setEvent(data.event);
-      }
-      setStreamData(prev => [data, ...prev].slice(0, 10));
+      handleFrame(data);
     };
 
     es.onerror = () => {
-      addLog("Transport Disconnected. Retrying...", "error");
+      setSyncState('OFFLINE');
+      addLog("SSE Transport Disconnected", "error");
     };
 
-    // Heartbeat listener (SSE keep-alive frames usually don't trigger message events unless labeled)
-    // But we can visualize data arrival
-    
     eventSourceRef.current = es;
   };
 
-  useEffect(() => {
-    if (event && !eventSourceRef.current && !isReplaying) {
-      subscribe();
-    }
-
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-    };
-  }, [event?.eid, isReplaying]);
-
-  const simulateReconnect = () => {
+  const subscribeWS = (since?: number) => {
     if (!event) return;
-    setIsReplaying(true);
-    addLog("Simulating Client Offline State...", "meta");
+    setSyncState('REPLAYING');
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = `${protocol}//${window.location.host}/api/etp-ws`;
+    
+    addLog(`INIT WS TRANS-BIND (since v${since || 0})`, "info");
+    
+    const ws = new WebSocket(url);
+    
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        type: 'etp.subscribe',
+        eid: event.eid,
+        since: since || 0
+      }));
+    };
+
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      handleFrame(data);
+    };
+
+    ws.onerror = () => {
+      setSyncState('OFFLINE');
+      addLog("WS Transport Failure", "error");
+    };
+
+    ws.onclose = () => {
+      if (syncState !== 'OFFLINE') setSyncState('OFFLINE');
+    };
+
+    socketRef.current = ws;
+  };
+
+  const handleFrame = (data: any) => {
+    if (data.type === 'snapshot.sync') {
+      const status = data.fallback ? 'FALLBACK RESYNC' : 'SNAPSHOT RECEIVED';
+      addLog(`${status} (v${data.event.v})`, "sync", data.event.v);
+      setEvent(data.event);
+      setSyncState('SYNCHRONIZED');
+      setIsReplaying(false);
+    } else if (data.type === 'delta.sync' || data.type === 'event.updated') {
+      addLog(`DELTA PROPAGATED (v${data.v})`, "sync", data.v);
+      setEvent(data.event);
+      setSyncState('SYNCHRONIZED');
+    } else if (data.type === 'subscription.state') {
+       addLog(`Subscription ${data.state.toUpperCase()}`, "meta");
+    } else if (data.type === 'heartbeat') {
+       // Minimal visualization for heartbeats
+    }
+    
+    if (data.type !== 'heartbeat') {
+      setStreamData(prev => [data, ...prev].slice(0, 10));
+    }
+  };
+
+  const cleanup = () => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (event && !eventSourceRef.current && !socketRef.current && !isReplaying) {
+      if (transport === 'sse') subscribeSSE();
+      else subscribeWS();
+    }
+
+    return cleanup;
+  }, [event?.eid, isReplaying, transport]);
+
+  const simulateReconnect = () => {
+    if (!event) return;
+    setIsReplaying(true);
+    setSyncState('STALE');
+    addLog("Transport Drop Triggered...", "meta");
+    cleanup();
     
-    // After 2 seconds, reconnect with "since"
     setTimeout(() => {
-      subscribe(event.v);
+      if (transport === 'sse') subscribeSSE(event.v);
+      else subscribeWS(event.v);
     }, 2000);
   };
 
   const createInitial = async () => {
     setLoading(true);
-    addLog("Registering original event identity...", "info");
+    addLog("Negotiating EID Registration...", "info");
     const res = await fetch("/api/e", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -225,7 +293,7 @@ const LiveMutationDemo = () => {
       ? { location: { name: "The Metaverse (E-Node #4)" }, lifecycle: "updated" }
       : { lifecycle: "cancelled" };
     
-    addLog(`Authoritative Mutation Broadcast: ${type}`, "info");
+    addLog(`Broadcasting Mutative Intent: ${type}`, "info");
     
     await fetch(`/api/e/${event.eid}`, {
       method: "PATCH",
@@ -236,24 +304,53 @@ const LiveMutationDemo = () => {
       },
       body: JSON.stringify(updates)
     });
-    // We don't set state here manually anymore, the Stream handles it!
     setLoading(false);
   };
 
-  // Helper because ulid() might not be available in scope or needs import
   const ulid_safe = () => Math.random().toString(36).substring(2, 15);
+
+  const getStatusColor = () => {
+    switch (syncState) {
+      case 'SYNCHRONIZED': return 'text-green-500';
+      case 'REPLAYING': return 'text-blue-400';
+      case 'STALE': return 'text-orange-500';
+      case 'OFFLINE': return 'text-red-500';
+      default: return 'text-white/20';
+    }
+  };
 
   return (
     <section id="demo" className="px-6 py-40 max-w-7xl mx-auto border-t etp-border bg-black/20">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
         <div className="lg:col-span-5 space-y-8">
-          <div className="flex items-center gap-3">
-            <Activity className="text-orange-500 animate-pulse" />
-            <h2 className="text-3xl font-bold tracking-tight text-white">Live Transport Node</h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Activity className="text-orange-500 animate-pulse" />
+              <h2 className="text-3xl font-bold tracking-tight text-white">Transport Binding Demo</h2>
+            </div>
+            <div className={`text-[10px] font-mono font-bold tracking-widest ${getStatusColor()}`}>
+              {syncState}
+            </div>
           </div>
           <p className="text-white/60 leading-relaxed text-lg">
-            This demo uses real <strong>Server-Sent Events (SSE)</strong>. When you mutate the origin, the stream propagates deltas to all active subscribers in real-time.
+            ETP is <strong>transport-neutral</strong>. Select a binding below to observe how the protocol maintains synchronization consistency across different delivery layers.
           </p>
+
+          {/* Transport Selection */}
+          <div className="flex p-1 bg-white/5 border etp-border rounded-lg">
+            <button 
+              onClick={() => { setTransport('sse'); cleanup(); }}
+              className={`flex-1 py-2 text-xs font-bold rounded transition-all ${transport === 'sse' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white'}`}
+            >
+              SSE Binding
+            </button>
+            <button 
+              onClick={() => { setTransport('ws'); cleanup(); }}
+              className={`flex-1 py-2 text-xs font-bold rounded transition-all ${transport === 'ws' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white'}`}
+            >
+              WebSocket Binding
+            </button>
+          </div>
           
           <div className="p-6 bg-black/40 border etp-border rounded-xl font-mono text-[10px] space-y-2 h-48 overflow-y-auto custom-scrollbar">
             <AnimatePresence initial={false}>
@@ -265,21 +362,21 @@ const LiveMutationDemo = () => {
                   className={`flex gap-2 ${l.type === 'sync' ? 'text-green-500' : l.type === 'error' ? 'text-red-500' : l.type === 'meta' ? 'text-blue-400 italic' : 'text-white/40'}`}
                 >
                   <span>[{new Date().toLocaleTimeString()}]</span>
-                  <span>{l.type === 'sync' ? 'SYN' : l.type === 'meta' ? 'RECOVERY' : 'LOG'}:</span>
+                  <span>{l.type === 'sync' ? 'SYN' : l.type === 'meta' ? 'MET' : 'LOG'}:</span>
                   <span className={l.type === 'sync' ? 'font-bold' : ''}>
                     {l.msg} {l.v && <span className="opacity-40">v{l.v}</span>}
                   </span>
                 </motion.div>
               ))}
             </AnimatePresence>
-            {log.length === 0 && <div className="opacity-20 text-white">Waiting for protocol interaction...</div>}
+            {log.length === 0 && <div className="opacity-20 text-white">Listening for transport frames...</div>}
             {isReplaying && (
               <motion.div 
                 animate={{ opacity: [0.3, 0.7, 0.3] }}
                 transition={{ repeat: Infinity, duration: 1 }}
                 className="text-[9px] text-blue-400 font-mono"
               >
-                &gt; SUBSCRIBER OFFLINE ... AWAITING RECOVERY
+                &gt; CONNECTION INTERRUPTED ... RECOVERY PENDING
               </motion.div>
             )}
           </div>
