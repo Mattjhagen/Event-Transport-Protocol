@@ -63,6 +63,30 @@ app.post("/api/e", async (c) => {
   }, 201);
 });
 
+// PATCH /api/e/:id: Mutate an event (Authoritative update)
+app.patch("/api/e/:id", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json();
+  const existing = eventStore.get(id);
+
+  if (!existing) return c.json({ error: "Event not found" }, 404);
+
+  const updatedEvent: ETPEvent = {
+    ...existing,
+    ...body,
+    v: existing.v + 1,
+    updated_at: new Date().toISOString(),
+  };
+
+  const validation = ETPEventSchema.safeParse(updatedEvent);
+  if (!validation.success) {
+    return c.json({ error: "Invalid mutation", details: validation.error }, 400);
+  }
+
+  eventStore.set(id, validation.data);
+  return c.json(validation.data);
+});
+
 // GET /api/e/:id: Fetch raw EVT object (supports EID or Alias)
 app.get("/api/e/:id", (c) => {
   const id = c.req.param("id");

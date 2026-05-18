@@ -45,77 +45,364 @@ const Header = () => (
   </header>
 );
 
-const Hero = () => (
-  <section className="px-6 py-20 flex flex-col items-center text-center max-w-4xl mx-auto">
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
-      className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-orange-500/30 bg-orange-500/5 text-xs text-orange-500 font-medium mb-8"
-    >
-      <Zap size={12} />
-      <span>Internet-native event infrastructure</span>
-    </motion.div>
-    <motion.h2 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay: 0.1 }}
-      className="text-5xl md:text-7xl font-bold tracking-tighter mb-6 text-white"
-    >
-      Events are <span className="text-orange-500 italic">objects</span>,<br />not files.
-    </motion.h2>
-    <motion.p 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay: 0.2 }}
-      className="text-lg text-white/60 mb-10 max-w-2xl"
-    >
-      ETP is an open protocol for transporting and synchronizing live event state across calendars, apps, AI agents, and operating systems.
-    </motion.p>
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.6, delay: 0.3 }}
-      className="flex flex-wrap items-center justify-center gap-4"
-    >
-      <button 
-        onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}
-        className="px-6 py-3 bg-white text-black font-bold rounded flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all transform hover:scale-105 cursor-pointer"
+const ComparisonSection = () => (
+  <section className="px-6 py-32 max-w-7xl mx-auto border-t etp-border">
+    <div className="flex flex-col items-center mb-20 text-center">
+      <span className="mono-label text-orange-500 mb-4 tracking-[0.3em]">Comparative Analysis</span>
+      <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white">Why Transport Matters</h2>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+      {/* Traditional Flow */}
+      <motion.div 
+        initial={{ opacity: 0, x: -20 }}
+        whileInView={{ opacity: 1, x: 0 }}
+        viewport={{ once: true }}
+        className="p-10 rounded-3xl bg-white/5 border etp-border relative overflow-hidden group"
       >
-        Live Demo <ArrowRight size={18} />
-      </button>
-      <button className="px-6 py-3 bg-white/5 border border-white/10 rounded font-bold hover:bg-white/10 transition-colors text-white">
-        Read the RFC
-      </button>
-    </motion.div>
+        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+          <Calendar size={120} className="text-white" />
+        </div>
+        <div className="flex items-center gap-2 mb-8">
+          <div className="w-2 h-2 bg-red-500 rounded-full" />
+          <span className="text-xs font-mono uppercase tracking-widest text-red-500 opacity-80">Legacy: Payload Import</span>
+        </div>
+        <h3 className="text-2xl font-bold mb-6 text-white">The Stale Sandbox</h3>
+        <ul className="space-y-6">
+          {[
+            { t: "Static Snapshot", d: "Events are trapped in .ics files at the moment of download." },
+            { t: "Manual Refresh", d: "Updates require rescheduling or re-importing new files." },
+            { t: "Duplicate Records", d: "Moving an event locally creates fragmented, conflicting states." },
+            { t: "Silent Failures", d: "Cancellations don't propagate to imported calendar files." }
+          ].map((item, i) => (
+            <li key={i} className="flex gap-4">
+              <div className="w-5 h-5 mt-1 rounded-full border border-red-500/30 flex items-center justify-center flex-shrink-0 text-red-500 font-mono text-[10px]">!</div>
+              <div>
+                <p className="font-bold text-sm text-white/90">{item.t}</p>
+                <p className="text-xs text-white/40 leading-relaxed">{item.d}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </motion.div>
+
+      {/* ETP Flow */}
+      <motion.div 
+        initial={{ opacity: 0, x: 20 }}
+        whileInView={{ opacity: 1, x: 0 }}
+        viewport={{ once: true }}
+        className="p-10 rounded-3xl bg-orange-500/5 border-2 border-orange-500/50 relative overflow-hidden group glow-orange"
+      >
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Globe size={120} className="text-orange-500" />
+        </div>
+        <div className="flex items-center gap-2 mb-8">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          <span className="text-xs font-mono uppercase tracking-widest text-green-500 font-bold">ETP: State Transport</span>
+        </div>
+        <h3 className="text-2xl font-bold mb-6 text-white">The Living Identity</h3>
+        <ul className="space-y-6">
+          {[
+            { t: "Immutable Identity (EID)", d: "Universal anchor (evt_) resolves across all devices and clients." },
+            { t: "Subscription Streams", d: "Calendars maintain a live interest in the event state." },
+            { t: "Atomic Propogation", d: "Authoritative mutations propagate to all nodes in milliseconds." },
+            { t: "Lifecycle Transparency", d: "Transitions (Cancelled, Updated) are signaled protocol-wide." }
+          ].map((item, i) => (
+            <li key={i} className="flex gap-4">
+              <div className="w-5 h-5 mt-1 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0 text-white font-mono text-[10px]">✓</div>
+              <div>
+                <p className="font-bold text-sm text-orange-400">{item.t}</p>
+                <p className="text-xs text-white/50 leading-relaxed">{item.d}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </motion.div>
+    </div>
   </section>
 );
 
-const Features = () => (
-  <section className="px-6 py-20 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto border-t etp-border">
-    {[
-      {
-        icon: <Globe size={24} className="text-orange-500" />,
-        title: "Immutable Identities",
-        desc: "Every event gets a canonical EID anchor (evt_) that persists across all mutations and platform migrations."
-      },
-      {
-        icon: <RefreshCcw size={24} className="text-orange-500" />,
-        title: "State Propagation",
-        desc: "Clients subscribe to update streams from authoritative origins instead of importing static snapshots."
-      },
-      {
-        icon: <LinkIcon size={24} className="text-orange-500" />,
-        title: "Universal Routing",
-        desc: "Single gateway discovery resolves EIDs to native OS protocols or deep-linked ETP-aware clients."
-      }
-    ].map((f, i) => (
-      <div key={i} className="p-8 glass-card rounded-2xl border etp-border">
-        <div className="mb-6">{f.icon}</div>
-        <h3 className="text-xl font-bold mb-3 text-white">{f.title}</h3>
-        <p className="text-white/50 text-sm leading-relaxed">{f.desc}</p>
+const LiveMutationDemo = () => {
+  const [event, setEvent] = useState<ETPEvent | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [log, setLog] = useState<{msg: string, type: 'info' | 'sync' | 'error'}[]>([]);
+
+  const addLog = (msg: string, type: 'info' | 'sync' | 'error' = 'info') => {
+    setLog(prev => [{ msg, type }, ...prev].slice(0, 5));
+  };
+
+  const createInitial = async () => {
+    setLoading(true);
+    addLog("Registering original event identity...", "info");
+    const res = await fetch("/api/e", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "ETP Global Summit",
+        start: new Date(Date.now() + 3600000).toISOString(),
+        end: new Date(Date.now() + 7200000).toISOString(),
+        location: { name: "Stockholm Central" },
+        sync: { strategy: "stream" }
+      })
+    });
+    const data = await res.json();
+    setEvent(data.event);
+    addLog(`Identity Created: ${data.event.eid}`, "sync");
+    setLoading(false);
+  };
+
+  const mutate = async (type: 'location' | 'cancel') => {
+    if (!event) return;
+    setLoading(true);
+    const updates = type === 'location' 
+      ? { location: { name: "The Metaverse (E-Node #4)" }, lifecycle: "updated" }
+      : { lifecycle: "cancelled" };
+    
+    addLog(`Broadcasting authoritative ${type === 'location' ? 'Update' : 'Cancellation'}...`, "info");
+    
+    const res = await fetch(`/api/e/${event.eid}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates)
+    });
+    const updated = await res.json();
+    setEvent(updated);
+    addLog(`EID ${updated.eid} version incremented to v${updated.v}`, "sync");
+    setLoading(false);
+  };
+
+  return (
+    <section id="demo" className="px-6 py-40 max-w-7xl mx-auto border-t etp-border bg-black/20">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+        <div className="lg:col-span-5 space-y-8">
+          <div className="flex items-center gap-3">
+            <Activity className="text-orange-500 animate-pulse" />
+            <h2 className="text-3xl font-bold tracking-tight text-white">Propagation Simulation</h2>
+          </div>
+          <p className="text-white/60 leading-relaxed text-lg">
+            Experience the "Emotional Gap." Click below to register an event identity, then trigger a protocol-wide mutation.
+          </p>
+          
+          <div className="p-6 bg-black/40 border etp-border rounded-xl font-mono text-[10px] space-y-2 h-40 overflow-hidden">
+            <AnimatePresence>
+              {log.map((l, i) => (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className={`flex gap-2 ${l.type === 'sync' ? 'text-green-500' : 'text-white/40'}`}
+                >
+                  <span>[{new Date().toLocaleTimeString()}]</span>
+                  <span>{l.type === 'sync' ? 'SYN' : 'LOG'}:</span>
+                  <span className={l.type === 'sync' ? 'font-bold' : ''}>{l.msg}</span>
+                </motion.div>
+              ))}
+              {log.length === 0 && <div className="opacity-20">Waiting for protocol interaction...</div>}
+            </AnimatePresence>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {!event ? (
+              <button 
+                onClick={createInitial}
+                disabled={loading}
+                className="w-full py-4 bg-white text-black font-bold rounded-lg hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                1. Register Initial Identity {loading && <RefreshCcw className="animate-spin" size={16} />}
+              </button>
+            ) : (
+              <>
+                <button 
+                  onClick={() => mutate('location')}
+                  disabled={loading || event.lifecycle === 'cancelled'}
+                  className="w-full py-4 bg-orange-600/20 border border-orange-500/50 text-orange-500 font-bold rounded-lg hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30"
+                >
+                  2. Mutate Location (Live Propogation)
+                </button>
+                <button 
+                  onClick={() => mutate('cancel')}
+                  disabled={loading || event.lifecycle === 'cancelled'}
+                  className="w-full py-4 bg-red-500/10 border border-red-500/30 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30"
+                >
+                  3. Signal Cancellation
+                </button>
+                <button onClick={() => setEvent(null)} className="text-[10px] mono-label text-center opacity-30 hover:opacity-100 transition-opacity cursor-pointer">Clear Identity</button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="lg:col-span-7 flex flex-col gap-8">
+          <div className="relative">
+             <div className="absolute -top-4 left-4 bg-[#0C0C0C] px-2 text-[9px] font-mono text-white/30 uppercase tracking-[0.2em] z-10">Client Observation Layer</div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Simulated Traditional App */}
+                <div className="p-8 rounded-2xl glass-card border etp-border opacity-50 grayscale transition-all hover:grayscale-0">
+                   <p className="mono-label mb-6">Legacy Mail App</p>
+                   {event ? (
+                     <div className="space-y-4">
+                       <div className="p-4 bg-white/5 rounded border border-white/10">
+                          <p className="text-[10px] opacity-40 font-mono mb-1">Attached: invitation.ics</p>
+                          <p className="text-sm font-bold text-white line-through opacity-30">Global Summit (v1)</p>
+                          <p className="text-[10px] text-red-400 mt-2">Status: Stale. Origin has moved.</p>
+                       </div>
+                       <div className="text-[9px] text-white/30 italic">User must re-download .ics to see updates.</div>
+                     </div>
+                   ) : (
+                     <div className="h-32 flex items-center justify-center border-2 border-dashed border-white/5 rounded-xl text-[10px] opacity-20">Waiting for payload...</div>
+                   )}
+                </div>
+
+                {/* Simulated ETP App */}
+                <motion.div 
+                  animate={event ? { scale: [1, 1.02, 1], borderColor: ["rgba(255,92,0,0.1)", "rgba(255,92,0,1)", "rgba(255,92,0,0.1)"] } : {}}
+                  className="p-8 rounded-2xl border-4 border-orange-500/0 bg-orange-500/5 relative overflow-hidden"
+                >
+                   <div className="flex justify-between items-center mb-6">
+                      <p className="mono-label text-orange-500 font-bold">ETP Native Client</p>
+                      {event && <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />}
+                   </div>
+                   {event ? (
+                     <motion.div 
+                        key={event.v}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-4"
+                     >
+                       <div className="flex items-center gap-2">
+                          <span className={`text-[10px] px-1 rounded ${event.lifecycle === 'cancelled' ? 'bg-red-500' : 'bg-green-500'} text-white font-mono`}>{event.lifecycle.toUpperCase()}</span>
+                          <span className="text-[10px] font-mono text-white/40">EVT Version {event.v}</span>
+                       </div>
+                       <h4 className="text-xl font-bold tracking-tight text-white">{event.title}</h4>
+                       <div className="flex items-center gap-2 text-white/60">
+                          <MapPin size={12} className="text-orange-500" />
+                          <span className="text-xs transition-all">{event.location?.name}</span>
+                       </div>
+                       {event.lifecycle !== 'cancelled' && (
+                         <div className="pt-4 flex items-center gap-2">
+                            <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                               <motion.div 
+                                  initial={{ width: 0 }}
+                                  animate={{ width: "100%" }}
+                                  transition={{ duration: 1.5 }}
+                                  className="h-full bg-orange-500" 
+                               />
+                            </div>
+                            <span className="text-[8px] font-mono opacity-30 text-white">STATE SYNCED</span>
+                         </div>
+                       )}
+                     </motion.div>
+                   ) : (
+                     <div className="h-32 flex items-center justify-center border-2 border-dashed border-orange-500/10 rounded-xl text-[10px] opacity-20">Awaiting stream...</div>
+                   )}
+                </motion.div>
+             </div>
+          </div>
+
+          <div className="p-6 bg-black/40 border etp-border rounded-xl">
+             <div className="flex items-center justify-between mb-4">
+                <p className="mono-label">Protocol Visualization</p>
+                <div className="flex items-center gap-1">
+                   <div className="w-1 h-1 bg-orange-500 rounded-full" />
+                   <div className="w-1 h-3 bg-orange-500/20 rounded-full" />
+                   <div className="w-1 h-2 bg-orange-500/50 rounded-full" />
+                </div>
+             </div>
+             {event ? (
+               <div className="space-y-4 font-mono text-[9px]">
+                  <div className="flex justify-between border-b border-white/5 pb-2">
+                     <span className="opacity-30 uppercase tracking-widest text-white">Identity</span>
+                     <span className="text-orange-500 underline text-white">etp://{event.eid}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 pb-2">
+                     <span className="opacity-30 uppercase tracking-widest text-white">AUTHORITY</span>
+                     <span className="text-white">Origin Verified Node</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 pb-2">
+                     <span className="opacity-30 uppercase tracking-widest text-white">MUTATION TYPE</span>
+                     <span className="text-white font-bold">{event.v > 1 ? 'Incremental Delta' : 'Initial Snapshot'}</span>
+                  </div>
+                  <div className="pt-2 flex gap-1">
+                     {Array.from({ length: 12 }).map((_, i) => (
+                       <motion.div 
+                          key={i}
+                          animate={{ 
+                            height: [8, Math.random() * 20 + 5, 8],
+                            opacity: [0.3, 0.8, 0.3]
+                          }}
+                          transition={{ 
+                            duration: 1 + Math.random(), 
+                            repeat: Infinity,
+                            delay: i * 0.1
+                          }}
+                          className="w-1 bg-orange-500 rounded-full"
+                       />
+                     ))}
+                     <span className="ml-4 opacity-30 uppercase text-[8px] self-center text-white">Protocol Stream Active</span>
+                  </div>
+               </div>
+             ) : (
+               <div className="text-center py-10 opacity-10 uppercase tracking-[0.3em] text-[10px] text-white">Identity Inactive</div>
+             )}
+          </div>
+        </div>
       </div>
-    ))}
+    </section>
+  );
+};
+
+// --- Hero & Main App ---
+
+const Hero = () => (
+  <section className="px-6 py-32 flex flex-col items-center text-center max-w-5xl mx-auto overflow-hidden relative">
+    {/* Background Glows */}
+    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-600/5 rounded-full blur-[120px] -z-10" />
+    <div className="absolute -top-40 -left-40 w-80 h-80 bg-blue-600/5 rounded-full blur-[100px] -z-10" />
+
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.8 }}
+      className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-xs text-orange-500 font-bold mb-10 tracking-widest uppercase"
+    >
+      <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-ping" />
+      ETP Protocol v0.1-Alpha
+    </motion.div>
+
+    <motion.h2 
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, delay: 0.1 }}
+      className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 leading-[0.95] text-white"
+    >
+      Events are <span className="text-orange-500 italic">synchronous</span>,<br />not downloadable.
+    </motion.h2>
+
+    <motion.p 
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, delay: 0.2 }}
+      className="text-xl md:text-2xl text-white/50 mb-12 max-w-3xl font-light leading-relaxed"
+    >
+      Stop sending files. Start transporting state. ETP is the internet-native plumbing for event synchronization across apps, agents, and OS.
+    </motion.p>
+
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, delay: 0.3 }}
+      className="flex flex-wrap items-center justify-center gap-6"
+    >
+      <button 
+        onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}
+        className="px-10 py-5 bg-white text-black font-bold rounded-xl flex items-center gap-3 hover:bg-orange-500 hover:text-white transition-all transform hover:-translate-y-1 hover:shadow-2xl shadow-orange-500/20 cursor-pointer text-lg"
+      >
+        Experience the Demo <ArrowRight size={20} />
+      </button>
+      <button className="px-10 py-5 bg-white/5 border border-white/10 rounded-xl font-bold hover:bg-white/10 transition-colors text-lg text-white">
+        Spec Definition
+      </button>
+    </motion.div>
   </section>
 );
 
@@ -451,38 +738,31 @@ export default function App() {
             </div>
           </section>
         ) : (
-          <>
+          <div className="space-y-0">
             <Hero />
-            <Features />
+            <ComparisonSection />
+            <LiveMutationDemo />
             
-            <section id="demo" className="px-6 py-32 max-w-7xl mx-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
-                <div className="lg:col-span-5 space-y-8">
-                  <div className="flex items-center gap-2">
-                    <div className="w-1 h-6 bg-orange-500 rounded-full" />
-                    <h2 className="text-3xl font-bold tracking-tight text-white">Router Demo</h2>
+            <section className="px-6 py-32 border-t etp-border bg-black/40">
+              <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20 items-start">
+                  <div className="space-y-6">
+                    <h3 className="text-3xl font-bold tracking-tight text-white underline decoration-orange-500/30">Developer Integration</h3>
+                    <p className="text-white/50 leading-relaxed text-sm">
+                      Ready to build on the transport layer? Register your first event identity manually to see the underlying architecture in action.
+                    </p>
+                    <ul className="space-y-4">
+                      {[
+                        "Resolvable EID Handshakes",
+                        "Universal Router Gateway",
+                        "Native Protocol Resolution"
+                      ].map(item => (
+                        <li key={item} className="flex items-center gap-3 text-xs font-mono text-white/30 italic italic italic">
+                          <Check size={12} className="text-orange-500" />
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <p className="text-white/60 leading-relaxed">
-                    Test the ETP v0.1 router. Create an event object, register it with the transport node, and generate a universal routing link that works across all clients.
-                  </p>
-                  
-                  <div className="space-y-4 pt-6">
-                    <div className="flex items-start gap-4">
-                      <div className="mt-1 w-5 h-5 rounded-full border border-white/20 flex items-center justify-center text-[10px] font-mono text-white">1</div>
-                      <p className="text-sm opacity-50 text-white">Event data is compiled into a standards-compliant <span className="text-white">EVT</span> object.</p>
-                    </div>
-                    <div className="flex items-start gap-4">
-                      <div className="mt-1 w-5 h-5 rounded-full border border-white/20 flex items-center justify-center text-[10px] font-mono text-white">2</div>
-                      <p className="text-sm opacity-50 text-white">Node computes the canonical <span className="text-white">etp://</span> hash and persistence layer.</p>
-                    </div>
-                    <div className="flex items-start gap-4">
-                      <div className="mt-1 w-5 h-5 rounded-full border border-white/20 flex items-center justify-center text-[10px] font-mono text-white">3</div>
-                      <p className="text-sm opacity-50 text-white">The <span className="text-white">Event Router</span> provides a single entry point for all devices.</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="lg:col-span-7">
                   <AnimatePresence mode="wait">
                     {createdResult ? (
                       <SuccessPanel 
@@ -493,20 +773,19 @@ export default function App() {
                     ) : (
                       <motion.div
                         key="form"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
                       >
                         <EventGenerator onCreated={setCreatedResult} />
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
               </div>
             </section>
             
             <SpecSection />
-          </>
+          </div>
         )}
       </main>
 
