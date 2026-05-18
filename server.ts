@@ -41,6 +41,26 @@ app.get("/api/capabilities", (c) => {
   return c.json(capabilities);
 });
 
+app.get("/api/bridges", (c) => {
+  const bridges = [
+    {
+      id: "ics-legacy",
+      name: "Standard ICS Bridge",
+      mode: "snapshot-only",
+      features: ["Static Export", "Universal Support"],
+      degradations: ["No Sync", "No Authority", "Manual Refresh Only"]
+    },
+    {
+      id: "webcal-compatible",
+      name: "WebCal Adaptive Bridge",
+      mode: "compatible",
+      features: ["Periodic Refresh", "Auto-Polling"],
+      degradations: ["High Latency", "No Replay", "Flattened Lifecycle"]
+    }
+  ];
+  return c.json(bridges);
+});
+
 /**
  * --- ETP API v0.1 ---
  */

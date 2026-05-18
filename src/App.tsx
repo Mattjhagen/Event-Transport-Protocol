@@ -575,12 +575,62 @@ const LiveMutationDemo = () => {
                     key={i} 
                     className="p-2 bg-white/5 border border-white/5 rounded"
                   >
-                    <span className="text-blue-400">event: message</span><br/>
-                    <span className="text-green-400">data: </span>
-                    <span className="text-white/60">{JSON.stringify(d)}</span>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-blue-400">frame: {d.type}</span>
+                      <span className="text-[8px] opacity-30">v{d.v}</span>
+                    </div>
+                    <span className="text-white/60 block truncate">{JSON.stringify(d)}</span>
                   </motion.div>
                 ))}
                 {streamData.length === 0 && <div className="text-center py-8 opacity-20 uppercase tracking-widest">No Active Subscription</div>}
+             </div>
+          </div>
+
+          {/* Interop & Downgrade Visualization */}
+          <div className="p-8 rounded-2xl border etp-border bg-black/40">
+             <div className="flex items-center gap-2 mb-8">
+                <Globe size={18} className="text-blue-400" />
+                <h3 className="text-xl font-bold text-white tracking-tight">Interoperability Bridge</h3>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                   <p className="mono-label text-white/40">ETP Canonical State</p>
+                   <div className="p-4 bg-orange-500/5 border-l-2 border-orange-500 rounded-r">
+                      <p className="text-[10px] font-bold text-orange-500 mb-1 tracking-widest uppercase">High Fidelity</p>
+                      <ul className="space-y-2">
+                         {['Real-time Streams', 'Authoritative Signatures', 'Durable Replay', 'Rich Lifecycle'].map(f => (
+                           <li key={f} className="text-[10px] text-white/60 flex items-center gap-2">
+                              <Check size={10} className="text-green-500" /> {f}
+                           </li>
+                         ))}
+                      </ul>
+                   </div>
+                </div>
+
+                <div className="space-y-4">
+                   <p className="mono-label text-white/40">Legacy Interop (ICS/CalDAV)</p>
+                   <div className="p-4 bg-red-500/5 border-l-2 border-red-500/30 rounded-r opacity-60">
+                      <p className="text-[10px] font-bold text-red-400/60 mb-1 tracking-widest uppercase">Semantic Downgrade</p>
+                      <ul className="space-y-2">
+                         {['Periodic Polling', 'Unverified State', 'Static Snapshots', 'Flattened Metadata'].map(f => (
+                           <li key={f} className="text-[10px] text-white/40 flex items-center gap-2">
+                              <span className="text-red-500/50">×</span> {f}
+                           </li>
+                         ))}
+                      </ul>
+                   </div>
+                </div>
+             </div>
+
+             <div className="mt-8 pt-6 border-t border-white/5">
+                <div className="flex justify-between items-center">
+                   <span className="text-[10px] mono-label">Bridged Metadata Confidence</span>
+                   <span className="text-[10px] font-mono text-orange-500">42% (Degraded)</span>
+                </div>
+                <div className="mt-2 h-1 bg-white/5 rounded-full overflow-hidden">
+                   <div className="h-full w-[42%] bg-orange-500/50" />
+                </div>
              </div>
           </div>
         </div>

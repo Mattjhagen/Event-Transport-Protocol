@@ -123,3 +123,18 @@ export type ETPSyncFrame =
   | { type: "heartbeat"; t: number }
   | { type: "error.sync"; code: string; msg: string }
   | { type: "subscription.state"; state: "active" | "stale" | "recovering" };
+
+/**
+ * ETP Interoperability and Bridge Metadata
+ */
+export const ETPFidelityLevel = z.enum(["native", "compatible", "snapshot-only"]);
+export type ETPFidelityLevel = z.infer<typeof ETPFidelityLevel>;
+
+export const ETPBridgeCapability = z.object({
+  id: z.string(),
+  name: z.string(),
+  mode: ETPFidelityLevel,
+  features: z.array(z.string()),
+  degradations: z.array(z.string())
+});
+export type ETPBridgeCapability = z.infer<typeof ETPBridgeCapability>;
