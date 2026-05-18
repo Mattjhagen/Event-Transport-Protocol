@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Activity, 
@@ -125,11 +125,45 @@ const ComparisonSection = () => (
 const LiveMutationDemo = () => {
   const [event, setEvent] = useState<ETPEvent | null>(null);
   const [loading, setLoading] = useState(false);
-  const [log, setLog] = useState<{msg: string, type: 'info' | 'sync' | 'error'}[]>([]);
+  const [log, setLog] = useState<{msg: string, type: 'info' | 'sync' | 'error', v?: number}[]>([]);
+  const [streamData, setStreamData] = useState<any[]>([]);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
-  const addLog = (msg: string, type: 'info' | 'sync' | 'error' = 'info') => {
-    setLog(prev => [{ msg, type }, ...prev].slice(0, 5));
+  const addLog = (msg: string, type: 'info' | 'sync' | 'error' = 'info', v?: number) => {
+    setLog(prev => [{ msg, type, v }, ...prev].slice(0, 10));
   };
+
+  useEffect(() => {
+    if (event && !eventSourceRef.current) {
+      addLog(`Initiating ETP Subscription: ${event.eid}`, "info");
+      const es = new EventSource(`/api/e/${event.eid}/stream`);
+      
+      es.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'snapshot') {
+          addLog(`Snapshot Received (v${data.event.v})`, "sync", data.event.v);
+          setEvent(data.event);
+        } else if (data.type === 'delta') {
+          addLog(`Delta Propagation (v${data.v})`, "sync", data.v);
+          setEvent(data.event);
+        }
+        setStreamData(prev => [data, ...prev].slice(0, 5));
+      };
+
+      es.onerror = () => {
+        addLog("Stream Disconnected. Retrying...", "error");
+      };
+
+      eventSourceRef.current = es;
+    }
+
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, [event?.eid]);
 
   const createInitial = async () => {
     setLoading(true);
@@ -147,7 +181,6 @@ const LiveMutationDemo = () => {
     });
     const data = await res.json();
     setEvent(data.event);
-    addLog(`Identity Created: ${data.event.eid}`, "sync");
     setLoading(false);
   };
 
@@ -158,16 +191,14 @@ const LiveMutationDemo = () => {
       ? { location: { name: "The Metaverse (E-Node #4)" }, lifecycle: "updated" }
       : { lifecycle: "cancelled" };
     
-    addLog(`Broadcasting authoritative ${type === 'location' ? 'Update' : 'Cancellation'}...`, "info");
+    addLog(`Authoritative Mutation Broadcast: ${type}`, "info");
     
-    const res = await fetch(`/api/e/${event.eid}`, {
+    await fetch(`/api/e/${event.eid}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates)
     });
-    const updated = await res.json();
-    setEvent(updated);
-    addLog(`EID ${updated.eid} version incremented to v${updated.v}`, "sync");
+    // We don't set state here manually anymore, the Stream handles it!
     setLoading(false);
   };
 
@@ -177,28 +208,30 @@ const LiveMutationDemo = () => {
         <div className="lg:col-span-5 space-y-8">
           <div className="flex items-center gap-3">
             <Activity className="text-orange-500 animate-pulse" />
-            <h2 className="text-3xl font-bold tracking-tight text-white">Propagation Simulation</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-white">Live Transport Node</h2>
           </div>
           <p className="text-white/60 leading-relaxed text-lg">
-            Experience the "Emotional Gap." Click below to register an event identity, then trigger a protocol-wide mutation.
+            This demo uses real <strong>Server-Sent Events (SSE)</strong>. When you mutate the origin, the stream propagates deltas to all active subscribers in real-time.
           </p>
           
-          <div className="p-6 bg-black/40 border etp-border rounded-xl font-mono text-[10px] space-y-2 h-40 overflow-hidden">
-            <AnimatePresence>
+          <div className="p-6 bg-black/40 border etp-border rounded-xl font-mono text-[10px] space-y-2 h-48 overflow-y-auto custom-scrollbar">
+            <AnimatePresence initial={false}>
               {log.map((l, i) => (
                 <motion.div 
-                  key={i}
+                  key={`${l.msg}-${i}`}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className={`flex gap-2 ${l.type === 'sync' ? 'text-green-500' : 'text-white/40'}`}
+                  className={`flex gap-2 ${l.type === 'sync' ? 'text-green-500' : l.type === 'error' ? 'text-red-500' : 'text-white/40'}`}
                 >
                   <span>[{new Date().toLocaleTimeString()}]</span>
                   <span>{l.type === 'sync' ? 'SYN' : 'LOG'}:</span>
-                  <span className={l.type === 'sync' ? 'font-bold' : ''}>{l.msg}</span>
+                  <span className={l.type === 'sync' ? 'font-bold' : ''}>
+                    {l.msg} {l.v && <span className="opacity-40">v{l.v}</span>}
+                  </span>
                 </motion.div>
               ))}
-              {log.length === 0 && <div className="opacity-20">Waiting for protocol interaction...</div>}
             </AnimatePresence>
+            {log.length === 0 && <div className="opacity-20">Waiting for protocol interaction...</div>}
           </div>
 
           <div className="flex flex-col gap-4">
@@ -208,7 +241,7 @@ const LiveMutationDemo = () => {
                 disabled={loading}
                 className="w-full py-4 bg-white text-black font-bold rounded-lg hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                1. Register Initial Identity {loading && <RefreshCcw className="animate-spin" size={16} />}
+                1. Register & Subscribe {loading && <RefreshCcw className="animate-spin" size={16} />}
               </button>
             ) : (
               <>
@@ -217,16 +250,16 @@ const LiveMutationDemo = () => {
                   disabled={loading || event.lifecycle === 'cancelled'}
                   className="w-full py-4 bg-orange-600/20 border border-orange-500/50 text-orange-500 font-bold rounded-lg hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30"
                 >
-                  2. Mutate Location (Live Propogation)
+                  2. Mutate Origin (Broadcast Delta)
                 </button>
                 <button 
                   onClick={() => mutate('cancel')}
                   disabled={loading || event.lifecycle === 'cancelled'}
                   className="w-full py-4 bg-red-500/10 border border-red-500/30 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30"
                 >
-                  3. Signal Cancellation
+                  3. Withdraw Identity (Signal Cancel)
                 </button>
-                <button onClick={() => setEvent(null)} className="text-[10px] mono-label text-center opacity-30 hover:opacity-100 transition-opacity cursor-pointer">Clear Identity</button>
+                <button onClick={() => { setEvent(null); setLog([]); setStreamData([]); }} className="text-[10px] mono-label text-center opacity-30 hover:opacity-100 transition-opacity cursor-pointer">Unsubscribe & Clear</button>
               </>
             )}
           </div>
@@ -234,116 +267,74 @@ const LiveMutationDemo = () => {
 
         <div className="lg:col-span-7 flex flex-col gap-8">
           <div className="relative">
-             <div className="absolute -top-4 left-4 bg-[#0C0C0C] px-2 text-[9px] font-mono text-white/30 uppercase tracking-[0.2em] z-10">Client Observation Layer</div>
+             <div className="absolute -top-4 left-4 bg-[#0C0C0C] px-2 text-[9px] font-mono text-white/30 uppercase tracking-[0.2em] z-10">Client Observations</div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Simulated Traditional App */}
-                <div className="p-8 rounded-2xl glass-card border etp-border opacity-50 grayscale transition-all hover:grayscale-0">
-                   <p className="mono-label mb-6">Legacy Mail App</p>
+                {/* Legacy App - Stays stale */}
+                <div className="p-8 rounded-2xl glass-card border etp-border opacity-50 grayscale">
+                   <p className="mono-label mb-6">Legacy Mail Client</p>
                    {event ? (
                      <div className="space-y-4">
                        <div className="p-4 bg-white/5 rounded border border-white/10">
                           <p className="text-[10px] opacity-40 font-mono mb-1">Attached: invitation.ics</p>
                           <p className="text-sm font-bold text-white line-through opacity-30">Global Summit (v1)</p>
-                          <p className="text-[10px] text-red-400 mt-2">Status: Stale. Origin has moved.</p>
+                          <p className="text-[10px] text-red-400 mt-2">Update Required: Manual</p>
                        </div>
-                       <div className="text-[9px] text-white/30 italic">User must re-download .ics to see updates.</div>
                      </div>
-                   ) : (
-                     <div className="h-32 flex items-center justify-center border-2 border-dashed border-white/5 rounded-xl text-[10px] opacity-20">Waiting for payload...</div>
-                   )}
+                   ) : <div className="h-32 flex items-center justify-center opacity-10">Empty Inbox</div>}
                 </div>
 
-                {/* Simulated ETP App */}
+                {/* ETP Native Client - Updates via SSE */}
                 <motion.div 
-                  animate={event ? { scale: [1, 1.02, 1], borderColor: ["rgba(255,92,0,0.1)", "rgba(255,92,0,1)", "rgba(255,92,0,0.1)"] } : {}}
-                  className="p-8 rounded-2xl border-4 border-orange-500/0 bg-orange-500/5 relative overflow-hidden"
+                  animate={event ? { scale: [1, 1.01, 1] } : {}}
+                  className="p-8 rounded-2xl border-2 border-orange-500/10 bg-orange-500/5"
                 >
                    <div className="flex justify-between items-center mb-6">
-                      <p className="mono-label text-orange-500 font-bold">ETP Native Client</p>
-                      {event && <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />}
+                      <p className="mono-label text-orange-500 font-bold">ETP Subscriber</p>
+                      {event && <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_green]" />}
                    </div>
                    {event ? (
                      <motion.div 
                         key={event.v}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
                         className="space-y-4"
                      >
                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] px-1 rounded ${event.lifecycle === 'cancelled' ? 'bg-red-500' : 'bg-green-500'} text-white font-mono`}>{event.lifecycle.toUpperCase()}</span>
-                          <span className="text-[10px] font-mono text-white/40">EVT Version {event.v}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded ${event.lifecycle === 'cancelled' ? 'bg-red-500' : 'bg-green-500'} text-white font-bold`}>{event.lifecycle.toUpperCase()}</span>
+                          <span className="text-[10px] font-mono text-white/40">v{event.v}</span>
                        </div>
                        <h4 className="text-xl font-bold tracking-tight text-white">{event.title}</h4>
                        <div className="flex items-center gap-2 text-white/60">
                           <MapPin size={12} className="text-orange-500" />
-                          <span className="text-xs transition-all">{event.location?.name}</span>
+                          <span className="text-xs">{event.location?.name}</span>
                        </div>
-                       {event.lifecycle !== 'cancelled' && (
-                         <div className="pt-4 flex items-center gap-2">
-                            <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
-                               <motion.div 
-                                  initial={{ width: 0 }}
-                                  animate={{ width: "100%" }}
-                                  transition={{ duration: 1.5 }}
-                                  className="h-full bg-orange-500" 
-                               />
-                            </div>
-                            <span className="text-[8px] font-mono opacity-30 text-white">STATE SYNCED</span>
-                         </div>
-                       )}
                      </motion.div>
-                   ) : (
-                     <div className="h-32 flex items-center justify-center border-2 border-dashed border-orange-500/10 rounded-xl text-[10px] opacity-20">Awaiting stream...</div>
-                   )}
+                   ) : <div className="h-32 flex items-center justify-center opacity-10">Listening for EIDs...</div>}
                 </motion.div>
              </div>
           </div>
 
-          <div className="p-6 bg-black/40 border etp-border rounded-xl">
+          {/* Raw Stream Monitor */}
+          <div className="p-6 bg-black/60 border etp-border rounded-xl">
              <div className="flex items-center justify-between mb-4">
-                <p className="mono-label">Protocol Visualization</p>
-                <div className="flex items-center gap-1">
-                   <div className="w-1 h-1 bg-orange-500 rounded-full" />
-                   <div className="w-1 h-3 bg-orange-500/20 rounded-full" />
-                   <div className="w-1 h-2 bg-orange-500/50 rounded-full" />
-                </div>
+                <p className="mono-label text-orange-500">Raw Stream Primitives</p>
+                <span className="text-[10px] opacity-30 font-mono">application/etp+json</span>
              </div>
-             {event ? (
-               <div className="space-y-4 font-mono text-[9px]">
-                  <div className="flex justify-between border-b border-white/5 pb-2">
-                     <span className="opacity-30 uppercase tracking-widest text-white">Identity</span>
-                     <span className="text-orange-500 underline text-white">etp://{event.eid}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-white/5 pb-2">
-                     <span className="opacity-30 uppercase tracking-widest text-white">AUTHORITY</span>
-                     <span className="text-white">Origin Verified Node</span>
-                  </div>
-                  <div className="flex justify-between border-b border-white/5 pb-2">
-                     <span className="opacity-30 uppercase tracking-widest text-white">MUTATION TYPE</span>
-                     <span className="text-white font-bold">{event.v > 1 ? 'Incremental Delta' : 'Initial Snapshot'}</span>
-                  </div>
-                  <div className="pt-2 flex gap-1">
-                     {Array.from({ length: 12 }).map((_, i) => (
-                       <motion.div 
-                          key={i}
-                          animate={{ 
-                            height: [8, Math.random() * 20 + 5, 8],
-                            opacity: [0.3, 0.8, 0.3]
-                          }}
-                          transition={{ 
-                            duration: 1 + Math.random(), 
-                            repeat: Infinity,
-                            delay: i * 0.1
-                          }}
-                          className="w-1 bg-orange-500 rounded-full"
-                       />
-                     ))}
-                     <span className="ml-4 opacity-30 uppercase text-[8px] self-center text-white">Protocol Stream Active</span>
-                  </div>
-               </div>
-             ) : (
-               <div className="text-center py-10 opacity-10 uppercase tracking-[0.3em] text-[10px] text-white">Identity Inactive</div>
-             )}
+             <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar font-mono text-[9px]">
+                {streamData.map((d, i) => (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    key={i} 
+                    className="p-2 bg-white/5 border border-white/5 rounded"
+                  >
+                    <span className="text-blue-400">event: message</span><br/>
+                    <span className="text-green-400">data: </span>
+                    <span className="text-white/60">{JSON.stringify(d)}</span>
+                  </motion.div>
+                ))}
+                {streamData.length === 0 && <div className="text-center py-8 opacity-20 uppercase tracking-widest">No Active Subscription</div>}
+             </div>
           </div>
         </div>
       </div>

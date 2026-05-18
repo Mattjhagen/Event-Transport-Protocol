@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { stream } from "hono/streaming";
 import { ulid } from "ulid";
 import dotenv from "dotenv";
 import path from "path";
@@ -14,10 +15,50 @@ dotenv.config();
 
 const app = new Hono();
 const eventStore = new Map<string, ETPEvent>();
+const subscribers = new Map<string, Set<(data: any) => void>>();
 
 /**
  * --- ETP API v0.1 ---
  */
+
+// GET /api/e/:id/stream: Subscribe to EID updates
+app.get("/api/e/:id/stream", (c) => {
+  const id = c.req.param("id");
+  const event = eventStore.get(id);
+  
+  if (!event) return c.json({ error: "Event not found" }, 404);
+
+  return stream(c, async (stream) => {
+    stream.onAbort(() => {
+      // Hono's onAbort covers client disconnection
+    });
+    c.header("Content-Type", "text/event-stream");
+    c.header("Cache-Control", "no-cache");
+    c.header("Connection", "keep-alive");
+
+    // Send initial snapshot
+    await stream.write(`data: ${JSON.stringify({ type: 'snapshot', event })}\n\n`);
+
+    const sendUpdate = (data: any) => {
+      stream.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    if (!subscribers.has(id)) subscribers.set(id, new Set());
+    subscribers.get(id)!.add(sendUpdate);
+
+    // Clean up on disconnect
+    c.req.raw.signal.addEventListener("abort", () => {
+      subscribers.get(id)?.delete(sendUpdate);
+      if (subscribers.get(id)?.size === 0) subscribers.delete(id);
+    });
+
+    // Keep connection alive
+    while (!c.req.raw.signal.aborted) {
+      await new Promise(resolve => setTimeout(resolve, 30000));
+      await stream.write(": keep-alive\n\n");
+    }
+  });
+});
 
 // POST /api/e: Register a new event object
 app.post("/api/e", async (c) => {
@@ -32,12 +73,16 @@ app.post("/api/e", async (c) => {
     ...body,
     eid,
     origin: baseUrl,
-    v: 1, // Start at version 1
+    v: 1, 
     created_at: now,
     updated_at: now,
     lifecycle: body.lifecycle || "scheduled",
     proto: "0.1",
-    sync: body.sync || { strategy: "poll", poll_interval: 3600 }
+    sync: body.sync || { 
+      strategy: "stream", 
+      stream_url: `${baseUrl}/api/e/${eid}/stream`,
+      poll_interval: 3600 
+    }
   };
 
   const validation = ETPEventSchema.safeParse(eventPayload);
@@ -83,8 +128,23 @@ app.patch("/api/e/:id", async (c) => {
     return c.json({ error: "Invalid mutation", details: validation.error }, 400);
   }
 
-  eventStore.set(id, validation.data);
-  return c.json(validation.data);
+  const finalEvent = validation.data;
+  eventStore.set(id, finalEvent);
+
+  // BROADCAST TO SUBSCRIBERS
+  const eidSubscribers = subscribers.get(id);
+  if (eidSubscribers) {
+    const delta = { 
+      type: 'delta', 
+      v: finalEvent.v,
+      eid: finalEvent.eid,
+      changes: body,
+      event: finalEvent // Standard ETP sends full snapshot for v0.1 over stream
+    };
+    eidSubscribers.forEach(send => send(delta));
+  }
+
+  return c.json(finalEvent);
 });
 
 // GET /api/e/:id: Fetch raw EVT object (supports EID or Alias)
