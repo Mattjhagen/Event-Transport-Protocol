@@ -15,47 +15,69 @@ dotenv.config();
 
 const app = new Hono();
 const eventStore = new Map<string, ETPEvent>();
+const deltaHistory = new Map<string, any[]>(); // Stores deltas for replay
+const processedMutations = new Set<string>(); // For idempotency
 const subscribers = new Map<string, Set<(data: any) => void>>();
 
 /**
  * --- ETP API v0.1 ---
  */
 
-// GET /api/e/:id/stream: Subscribe to EID updates
+// GET /api/e/:id/stream: Subscribe to EID updates with Replay Support
 app.get("/api/e/:id/stream", (c) => {
   const id = c.req.param("id");
   const event = eventStore.get(id);
+  const sinceVersion = parseInt(c.req.query("since") || c.req.header("Last-Event-ID") || "0");
   
   if (!event) return c.json({ error: "Event not found" }, 404);
 
   return stream(c, async (stream) => {
-    stream.onAbort(() => {
-      // Hono's onAbort covers client disconnection
-    });
     c.header("Content-Type", "text/event-stream");
     c.header("Cache-Control", "no-cache");
     c.header("Connection", "keep-alive");
 
-    // Send initial snapshot
-    await stream.write(`data: ${JSON.stringify({ type: 'snapshot', event })}\n\n`);
+    // REPLAY SEMANTICS
+    if (sinceVersion > 0 && sinceVersion < event.v) {
+      const history = deltaHistory.get(id) || [];
+      const missedDeltas = history.filter(d => d.v > sinceVersion);
+      
+      if (missedDeltas.length > 0) {
+        for (const delta of missedDeltas) {
+          await stream.write(`id: ${delta.v}\n`);
+          await stream.write(`data: ${JSON.stringify({ type: 'delta.sync', ...delta })}\n\n`);
+        }
+      } else {
+        // Gap too large or history purged, send full snapshot
+        await stream.write(`id: ${event.v}\n`);
+        await stream.write(`data: ${JSON.stringify({ type: 'snapshot.sync', event, fallback: true })}\n\n`);
+      }
+    } else {
+      // Direct Snapshot
+      await stream.write(`id: ${event.v}\n`);
+      await stream.write(`data: ${JSON.stringify({ type: 'snapshot.sync', event })}\n\n`);
+    }
 
     const sendUpdate = (data: any) => {
+      stream.write(`id: ${data.v}\n`);
       stream.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 
     if (!subscribers.has(id)) subscribers.set(id, new Set());
     subscribers.get(id)!.add(sendUpdate);
 
-    // Clean up on disconnect
+    // Keep connection alive
+    const heartbeat = setInterval(() => {
+      stream.write(": heartbeat\n\n");
+    }, 15000);
+
     c.req.raw.signal.addEventListener("abort", () => {
+      clearInterval(heartbeat);
       subscribers.get(id)?.delete(sendUpdate);
       if (subscribers.get(id)?.size === 0) subscribers.delete(id);
     });
 
-    // Keep connection alive
     while (!c.req.raw.signal.aborted) {
-      await new Promise(resolve => setTimeout(resolve, 30000));
-      await stream.write(": keep-alive\n\n");
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   });
 });
@@ -93,6 +115,7 @@ app.post("/api/e", async (c) => {
 
   const etpEvent = validation.data;
   eventStore.set(eid, etpEvent);
+  deltaHistory.set(eid, [{ type: 'event.created', v: 1, eid, event: etpEvent }]);
 
   c.header("X-ETP-EID", eid);
   c.header("X-ETP-Version", "0.1");
@@ -108,13 +131,24 @@ app.post("/api/e", async (c) => {
   }, 201);
 });
 
-// PATCH /api/e/:id: Mutate an event (Authoritative update)
+// PATCH /api/e/:id: Mutate an event with Idempotency and History
 app.patch("/api/e/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
-  const existing = eventStore.get(id);
+  const mutationId = c.req.header("X-Mutation-ID") || body.mutation_id;
+  
+  if (mutationId && processedMutations.has(mutationId)) {
+    return c.json(eventStore.get(id), 200, { "X-ETP-Idempotent": "true" });
+  }
 
+  const existing = eventStore.get(id);
   if (!existing) return c.json({ error: "Event not found" }, 404);
+
+  // Strict Version Enforcement
+  const requestedVersion = parseInt(c.req.header("X-ETP-If-Version") || body.v_expected || "0");
+  if (requestedVersion > 0 && requestedVersion !== existing.v) {
+    return c.json({ error: "Conflict: Version mismatch", current_v: existing.v }, 409);
+  }
 
   const updatedEvent: ETPEvent = {
     ...existing,
@@ -130,17 +164,25 @@ app.patch("/api/e/:id", async (c) => {
 
   const finalEvent = validation.data;
   eventStore.set(id, finalEvent);
+  if (mutationId) processedMutations.add(mutationId);
+
+  // RECORD DELTA IN HISTORY
+  const delta = { 
+    type: 'event.updated', 
+    v: finalEvent.v,
+    eid: finalEvent.eid,
+    changes: body,
+    event: finalEvent, // v0.1 simplification
+    mutation_id: mutationId
+  };
+  
+  const history = deltaHistory.get(id) || [];
+  history.push(delta);
+  deltaHistory.set(id, history.slice(-50)); // Retention limit
 
   // BROADCAST TO SUBSCRIBERS
   const eidSubscribers = subscribers.get(id);
   if (eidSubscribers) {
-    const delta = { 
-      type: 'delta', 
-      v: finalEvent.v,
-      eid: finalEvent.eid,
-      changes: body,
-      event: finalEvent // Standard ETP sends full snapshot for v0.1 over stream
-    };
     eidSubscribers.forEach(send => send(delta));
   }
 

@@ -125,36 +125,55 @@ const ComparisonSection = () => (
 const LiveMutationDemo = () => {
   const [event, setEvent] = useState<ETPEvent | null>(null);
   const [loading, setLoading] = useState(false);
-  const [log, setLog] = useState<{msg: string, type: 'info' | 'sync' | 'error', v?: number}[]>([]);
+  const [log, setLog] = useState<{msg: string, type: 'info' | 'sync' | 'error' | 'meta', v?: number}[]>([]);
   const [streamData, setStreamData] = useState<any[]>([]);
+  const [isReplaying, setIsReplaying] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const addLog = (msg: string, type: 'info' | 'sync' | 'error' = 'info', v?: number) => {
-    setLog(prev => [{ msg, type, v }, ...prev].slice(0, 10));
+  const addLog = (msg: string, type: 'info' | 'sync' | 'error' | 'meta' = 'info', v?: number) => {
+    setLog(prev => [{ msg, type, v }, ...prev].slice(0, 15));
+  };
+
+  const subscribe = (since?: number) => {
+    if (!event) return;
+    
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    const url = `/api/e/${event.eid}/stream${since ? `?since=${since}` : ''}`;
+    const msg = since ? `Reconnecting Subscriber (since v${since})...` : `Initiating Subscriber Subscription...`;
+    addLog(msg, "info");
+    
+    const es = new EventSource(url);
+    
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'snapshot.sync') {
+        const status = data.fallback ? 'FALLBACK RESYNC' : 'SNAPSHOT RECEIVED';
+        addLog(`${status} (v${data.event.v})`, "sync", data.event.v);
+        setEvent(data.event);
+        setIsReplaying(false);
+      } else if (data.type === 'delta.sync' || data.type === 'event.updated') {
+        addLog(`DELTA PROPAGATED (v${data.v})`, "sync", data.v);
+        setEvent(data.event);
+      }
+      setStreamData(prev => [data, ...prev].slice(0, 10));
+    };
+
+    es.onerror = () => {
+      addLog("Transport Disconnected. Retrying...", "error");
+    };
+
+    // Heartbeat listener (SSE keep-alive frames usually don't trigger message events unless labeled)
+    // But we can visualize data arrival
+    
+    eventSourceRef.current = es;
   };
 
   useEffect(() => {
-    if (event && !eventSourceRef.current) {
-      addLog(`Initiating ETP Subscription: ${event.eid}`, "info");
-      const es = new EventSource(`/api/e/${event.eid}/stream`);
-      
-      es.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        if (data.type === 'snapshot') {
-          addLog(`Snapshot Received (v${data.event.v})`, "sync", data.event.v);
-          setEvent(data.event);
-        } else if (data.type === 'delta') {
-          addLog(`Delta Propagation (v${data.v})`, "sync", data.v);
-          setEvent(data.event);
-        }
-        setStreamData(prev => [data, ...prev].slice(0, 5));
-      };
-
-      es.onerror = () => {
-        addLog("Stream Disconnected. Retrying...", "error");
-      };
-
-      eventSourceRef.current = es;
+    if (event && !eventSourceRef.current && !isReplaying) {
+      subscribe();
     }
 
     return () => {
@@ -163,7 +182,22 @@ const LiveMutationDemo = () => {
         eventSourceRef.current = null;
       }
     };
-  }, [event?.eid]);
+  }, [event?.eid, isReplaying]);
+
+  const simulateReconnect = () => {
+    if (!event) return;
+    setIsReplaying(true);
+    addLog("Simulating Client Offline State...", "meta");
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    
+    // After 2 seconds, reconnect with "since"
+    setTimeout(() => {
+      subscribe(event.v);
+    }, 2000);
+  };
 
   const createInitial = async () => {
     setLoading(true);
@@ -195,12 +229,19 @@ const LiveMutationDemo = () => {
     
     await fetch(`/api/e/${event.eid}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "X-Mutation-ID": `mut_${ulid_safe()}`,
+        "X-ETP-If-Version": String(event.v)
+      },
       body: JSON.stringify(updates)
     });
     // We don't set state here manually anymore, the Stream handles it!
     setLoading(false);
   };
+
+  // Helper because ulid() might not be available in scope or needs import
+  const ulid_safe = () => Math.random().toString(36).substring(2, 15);
 
   return (
     <section id="demo" className="px-6 py-40 max-w-7xl mx-auto border-t etp-border bg-black/20">
@@ -221,17 +262,26 @@ const LiveMutationDemo = () => {
                   key={`${l.msg}-${i}`}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className={`flex gap-2 ${l.type === 'sync' ? 'text-green-500' : l.type === 'error' ? 'text-red-500' : 'text-white/40'}`}
+                  className={`flex gap-2 ${l.type === 'sync' ? 'text-green-500' : l.type === 'error' ? 'text-red-500' : l.type === 'meta' ? 'text-blue-400 italic' : 'text-white/40'}`}
                 >
                   <span>[{new Date().toLocaleTimeString()}]</span>
-                  <span>{l.type === 'sync' ? 'SYN' : 'LOG'}:</span>
+                  <span>{l.type === 'sync' ? 'SYN' : l.type === 'meta' ? 'RECOVERY' : 'LOG'}:</span>
                   <span className={l.type === 'sync' ? 'font-bold' : ''}>
                     {l.msg} {l.v && <span className="opacity-40">v{l.v}</span>}
                   </span>
                 </motion.div>
               ))}
             </AnimatePresence>
-            {log.length === 0 && <div className="opacity-20">Waiting for protocol interaction...</div>}
+            {log.length === 0 && <div className="opacity-20 text-white">Waiting for protocol interaction...</div>}
+            {isReplaying && (
+              <motion.div 
+                animate={{ opacity: [0.3, 0.7, 0.3] }}
+                transition={{ repeat: Infinity, duration: 1 }}
+                className="text-[9px] text-blue-400 font-mono"
+              >
+                &gt; SUBSCRIBER OFFLINE ... AWAITING RECOVERY
+              </motion.div>
+            )}
           </div>
 
           <div className="flex flex-col gap-4">
@@ -259,7 +309,17 @@ const LiveMutationDemo = () => {
                 >
                   3. Withdraw Identity (Signal Cancel)
                 </button>
-                <button onClick={() => { setEvent(null); setLog([]); setStreamData([]); }} className="text-[10px] mono-label text-center opacity-30 hover:opacity-100 transition-opacity cursor-pointer">Unsubscribe & Clear</button>
+                <button 
+                  onClick={simulateReconnect}
+                  disabled={loading || isReplaying}
+                  className="w-full py-4 bg-blue-500/10 border border-blue-500/30 text-blue-500 font-bold rounded-lg hover:bg-blue-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30"
+                >
+                  {isReplaying ? "Recovering..." : "Simulate Connection Drop & Replay"}
+                </button>
+                <div className="flex gap-4">
+                  <button onClick={() => { setEvent(null); setLog([]); setStreamData([]); setIsReplaying(false); }} className="flex-1 text-[10px] mono-label text-center opacity-30 hover:opacity-100 transition-opacity cursor-pointer">Unsubscribe</button>
+                  <button onClick={() => setLog([])} className="flex-1 text-[10px] mono-label text-center opacity-30 hover:opacity-100 transition-opacity cursor-pointer">Clear Logs</button>
+                </div>
               </>
             )}
           </div>
