@@ -1,0 +1,6 @@
+{
+  "name": "ETP: Event Transport Protocol",
+  "description": "An open protocol for transporting and synchronizing live event state across calendars, apps, and AI agents. Features an event router for cross-platform synchronization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
