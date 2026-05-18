@@ -286,12 +286,30 @@ const LiveMutationDemo = () => {
     setLoading(false);
   };
 
-  const mutate = async (type: 'location' | 'cancel') => {
+  const mutate = async (type: 'location' | 'cancel' | 'delay' | 'reschedule' | 'complete') => {
     if (!event) return;
     setLoading(true);
-    const updates = type === 'location' 
-      ? { location: { name: "The Metaverse (E-Node #4)" }, lifecycle: "updated" }
-      : { lifecycle: "cancelled" };
+    
+    let updates: any = {};
+    switch (type) {
+      case 'location':
+        updates = { location: { name: "The Metaverse (E-Node #42)" }, lifecycle: "updated" };
+        break;
+      case 'cancel':
+        updates = { lifecycle: "cancelled" };
+        break;
+      case 'delay':
+        const newStart = new Date(new Date(event.start).getTime() + 30 * 60000).toISOString();
+        updates = { start: newStart, lifecycle: "delayed" };
+        break;
+      case 'reschedule':
+        const resStart = new Date(new Date(event.start).getTime() + 86400000).toISOString();
+        updates = { start: resStart, lifecycle: "rescheduled" };
+        break;
+      case 'complete':
+        updates = { lifecycle: "completed" };
+        break;
+    }
     
     addLog(`Broadcasting Mutative Intent: ${type}`, "info");
     
@@ -392,13 +410,37 @@ const LiveMutationDemo = () => {
               </button>
             ) : (
               <>
-                <button 
-                  onClick={() => mutate('location')}
-                  disabled={loading || event.lifecycle === 'cancelled'}
-                  className="w-full py-4 bg-orange-600/20 border border-orange-500/50 text-orange-500 font-bold rounded-lg hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30"
-                >
-                  2. Mutate Origin (Broadcast Delta)
-                </button>
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => mutate('location')}
+                    disabled={loading || event.lifecycle === 'cancelled'}
+                    className="py-4 bg-orange-600/20 border border-orange-500/50 text-orange-500 text-xs font-bold rounded-lg hover:bg-orange-500 hover:text-white transition-all disabled:opacity-30 cursor-pointer"
+                  >
+                    Mutate Content
+                  </button>
+                  <button 
+                    onClick={() => mutate('delay')}
+                    disabled={loading || event.lifecycle === 'cancelled' || event.lifecycle === 'completed'}
+                    className="py-4 bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 text-xs font-bold rounded-lg hover:bg-yellow-500 hover:text-white transition-all disabled:opacity-30 cursor-pointer"
+                  >
+                    Delay (+30m)
+                  </button>
+                  <button 
+                    onClick={() => mutate('reschedule')}
+                    disabled={loading || event.lifecycle === 'cancelled' || event.lifecycle === 'completed'}
+                    className="py-4 bg-purple-500/10 border border-purple-500/30 text-purple-500 text-xs font-bold rounded-lg hover:bg-purple-500 hover:text-white transition-all disabled:opacity-30 cursor-pointer"
+                  >
+                    Reschedule (+24h)
+                  </button>
+                  <button 
+                    onClick={() => mutate('complete')}
+                    disabled={loading || event.lifecycle === 'cancelled' || event.lifecycle === 'completed'}
+                    className="py-4 bg-green-500/10 border border-green-500/30 text-green-500 text-xs font-bold rounded-lg hover:bg-green-500 hover:text-white transition-all disabled:opacity-30 cursor-pointer"
+                  >
+                    Signal Completion
+                  </button>
+                </div>
+                
                 <button 
                   onClick={() => mutate('cancel')}
                   disabled={loading || event.lifecycle === 'cancelled'}
@@ -461,14 +503,62 @@ const LiveMutationDemo = () => {
                           <span className="text-[10px] font-mono text-white/40">v{event.v}</span>
                        </div>
                        <h4 className="text-xl font-bold tracking-tight text-white">{event.title}</h4>
+                       <div className="flex items-center gap-2 text-white/40 mb-2">
+                          <Clock size={12} />
+                          <span className="text-[10px] font-mono">{new Date(event.start).toLocaleString()}</span>
+                       </div>
                        <div className="flex items-center gap-2 text-white/60">
                           <MapPin size={12} className="text-orange-500" />
                           <span className="text-xs">{event.location?.name}</span>
+                       </div>
+                       
+                       {/* Urgency Indicator */}
+                       <div className="mt-6 pt-4 border-t border-white/5">
+                          <div className="flex justify-between items-center mb-2">
+                             <span className="text-[9px] font-mono opacity-40 uppercase tracking-widest text-white">Temporal Urgency</span>
+                             <span className="text-[9px] font-bold text-orange-500">REAL-TIME PRIORITY</span>
+                          </div>
+                          <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                             <motion.div 
+                                animate={{ width: ["10%", "90%", "10%"] }}
+                                transition={{ repeat: Infinity, duration: 3 }}
+                                className="h-full bg-orange-500"
+                             />
+                          </div>
                        </div>
                      </motion.div>
                    ) : <div className="h-32 flex items-center justify-center opacity-10">Listening for EIDs...</div>}
                 </motion.div>
              </div>
+          </div>
+
+          {/* Authoritative Timeline */}
+          <div className="p-6 bg-black/60 border etp-border rounded-xl">
+             <div className="flex items-center justify-between mb-4">
+                <p className="mono-label text-orange-500">Authoritative Timeline</p>
+                <div className="flex gap-1">
+                   {Array.from({ length: 5 }).map((_, i) => (
+                     <div key={i} className={`w-1 h-3 rounded-full ${event && event.v > i ? 'bg-orange-500' : 'bg-white/5'}`} />
+                   ))}
+                </div>
+             </div>
+             {event ? (
+               <div className="relative pl-4 border-l border-white/10 space-y-4">
+                  <div className="absolute -left-[5px] top-0 w-2 h-2 bg-orange-500 rounded-full" />
+                  <div className="space-y-4">
+                     <div className="text-[10px]">
+                        <span className="text-orange-500 font-bold font-mono">v{event.v}</span>
+                        <span className="text-white opacity-40 mx-2">—</span>
+                        <span className="text-white opacity-60">Current State superseded {event.v - 1} prior versions.</span>
+                        {event.supersedes && (
+                          <p className="mt-1 text-[8px] opacity-30 font-mono text-white">SUPERCEDES: {event.supersedes}</p>
+                        )}
+                     </div>
+                  </div>
+               </div>
+             ) : (
+               <div className="text-center py-4 opacity-10 uppercase tracking-widest text-[10px] text-white">Timeline Inactive</div>
+             )}
           </div>
 
           {/* Raw Stream Monitor */}

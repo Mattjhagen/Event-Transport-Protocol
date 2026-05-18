@@ -9,9 +9,12 @@ export const ETPEventLifecycle = z.enum([
   "draft",
   "scheduled",
   "updated",
+  "delayed",
+  "rescheduled",
   "cancelled",
   "completed",
-  "archived"
+  "archived",
+  "expired"
 ]);
 
 export type ETPEventLifecycle = z.infer<typeof ETPEventLifecycle>;
@@ -25,6 +28,10 @@ export const ETPEventSchema = z.object({
   
   /** Alias: Human-readable slug (optional identifier) */
   alias: z.string().regex(/^[a-z0-9-]+$/).optional(),
+  
+  /** Recurrence Foundation */
+  series_id: z.string().optional(), // Links occurrences to a series
+  occurrence_id: z.string().optional(), // Individual instance identifier in a series
   
   /** Versioning: Monotonic version count */
   v: z.number().int().min(1).default(1),
@@ -45,6 +52,9 @@ export const ETPEventSchema = z.object({
   // Core Data
   title: z.string().min(1).max(255),
   description: z.string().optional(),
+  
+  /** Supersession logic */
+  supersedes: z.string().optional(), // EID or EIDv that this update officially invalidates
   location: z.object({
     name: z.string(),
     address: z.string().optional(),

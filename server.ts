@@ -114,6 +114,9 @@ app.post("/api/e", async (c) => {
     created_at: now,
     updated_at: now,
     lifecycle: body.lifecycle || "scheduled",
+    timezone: body.timezone || "UTC",
+    series_id: body.series_id,
+    occurrence_id: body.occurrence_id,
     proto: "0.1",
     sync: body.sync || { 
       strategy: "stream", 
@@ -170,6 +173,7 @@ app.patch("/api/e/:id", async (c) => {
     ...body,
     v: existing.v + 1,
     updated_at: new Date().toISOString(),
+    supersedes: body.supersedes || `${existing.eid}v${existing.v}`
   };
 
   const validation = ETPEventSchema.safeParse(updatedEvent);
