@@ -17,14 +17,20 @@ export const ETPEventLifecycle = z.enum([
 export type ETPEventLifecycle = z.infer<typeof ETPEventLifecycle>;
 
 export const ETPEventSchema = z.object({
-  /** EID: Immutable Event Identity (UUID v4 recommended) */
-  eid: z.string().uuid(),
+  /** EID: Immutable Event Identity (ULID strongly recommended, prefixed with evt_) */
+  eid: z.string().regex(/^evt_[0-9A-HJKMNP-TV-Z]{26}$/),
+  
+  /** Origin: The canonical authority node that manages this object */
+  origin: z.string().url(),
   
   /** Alias: Human-readable slug (optional identifier) */
   alias: z.string().regex(/^[a-z0-9-]+$/).optional(),
   
   /** Versioning: Monotonic version count */
   v: z.number().int().min(1).default(1),
+  
+  /** Revision: Optional hash of the current payload state for quick comparison */
+  rev: z.string().optional(),
   
   /** Timestamps */
   created_at: z.string().datetime(),
@@ -64,7 +70,15 @@ export const ETPEventSchema = z.object({
     strategy: z.enum(["static", "poll", "stream"]).default("poll"),
     stream_url: z.string().url().optional(),
     poll_interval: z.number().int().optional(), // Seconds
+    delta_url: z.string().url().optional(), // URL for fetching incremental changes
   }).default({ strategy: "poll", poll_interval: 3600 }),
+  
+  // Authority & Crust
+  auth: z.object({
+    signature: z.string().optional(),
+    pubkey: z.string().optional(),
+    method: z.enum(["none", "ed25519"]).default("none")
+  }).optional(),
   
   // Custom Extensions
   ext: z.record(z.string(), z.any()).optional()

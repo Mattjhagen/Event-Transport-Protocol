@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { v4 as uuidv4 } from "uuid";
+import { ulid } from "ulid";
 import dotenv from "dotenv";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -23,18 +23,21 @@ const eventStore = new Map<string, ETPEvent>();
 app.post("/api/e", async (c) => {
   const body = await c.req.json();
   
-  const eid = uuidv4();
+  const eid = `evt_${ulid()}`;
   const now = new Date().toISOString();
+  const baseUrl = process.env.APP_URL || "http://localhost:3000";
   
   // Inject protocol defaults
   const eventPayload = {
     ...body,
     eid,
+    origin: baseUrl,
     v: 1, // Start at version 1
     created_at: now,
     updated_at: now,
     lifecycle: body.lifecycle || "scheduled",
-    proto: "0.1"
+    proto: "0.1",
+    sync: body.sync || { strategy: "poll", poll_interval: 3600 }
   };
 
   const validation = ETPEventSchema.safeParse(eventPayload);
@@ -46,10 +49,9 @@ app.post("/api/e", async (c) => {
   const etpEvent = validation.data;
   eventStore.set(eid, etpEvent);
 
-  const baseUrl = process.env.APP_URL || "http://localhost:3000";
-  
   c.header("X-ETP-EID", eid);
   c.header("X-ETP-Version", "0.1");
+  c.header("X-ETP-Origin", baseUrl);
   
   return c.json({
     event: etpEvent,

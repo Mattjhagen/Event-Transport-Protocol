@@ -96,18 +96,18 @@ const Features = () => (
     {[
       {
         icon: <Globe size={24} className="text-orange-500" />,
-        title: "Permanent Identities",
-        desc: "Every event gets a canonical URI (etp://) that persists across platforms and updates."
+        title: "Immutable Identities",
+        desc: "Every event gets a canonical EID anchor (evt_) that persists across all mutations and platform migrations."
       },
       {
         icon: <RefreshCcw size={24} className="text-orange-500" />,
-        title: "Live Synchronization",
-        desc: "Calendars subscribe to event streams instead of importing static snapshots. Updates propagate in real-time."
+        title: "State Propagation",
+        desc: "Clients subscribe to update streams from authoritative origins instead of importing static snapshots."
       },
       {
         icon: <LinkIcon size={24} className="text-orange-500" />,
         title: "Universal Routing",
-        desc: "One link detects device and platform to route users to the best native experience."
+        desc: "Single gateway discovery resolves EIDs to native OS protocols or deep-linked ETP-aware clients."
       }
     ].map((f, i) => (
       <div key={i} className="p-8 glass-card rounded-2xl border etp-border">
@@ -230,9 +230,9 @@ const SuccessPanel = ({ result, onReset }: { result: any, onReset: () => void, k
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-2">
           <Activity size={20} className="text-orange-500" />
-          <span className="mono-label">EID Registered Sucessfully</span>
+          <span className="mono-label">EID Identity Registered</span>
         </div>
-        <button onClick={onReset} className="text-xs underline opacity-50 hover:opacity-100 text-white cursor-pointer">Register New Identity</button>
+        <button onClick={onReset} className="text-xs underline opacity-50 hover:opacity-100 text-white cursor-pointer transition-opacity">Register New Identity</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -254,15 +254,24 @@ const SuccessPanel = ({ result, onReset }: { result: any, onReset: () => void, k
                 <Terminal size={20} className="text-orange-500" />
               </div>
               <div>
-                <p className="text-xs font-bold text-white">EID Identity</p>
-                <p className="text-[10px] text-orange-500 font-mono">{result.event.eid}</p>
+                <p className="text-xs font-bold text-white">EID (ULID)</p>
+                <p className="text-[10px] text-orange-500 font-mono tracking-tight">{result.event.eid}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-white/5 border etp-border flex items-center justify-center">
+                <Calendar size={20} className="text-white opacity-40" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white opacity-40">ICS Compatibility</p>
+                <a href={result.links.ics} className="text-[10px] text-orange-500 hover:underline">Download Legacy Blob</a>
               </div>
             </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <h4 className="text-sm font-bold opacity-40 uppercase tracking-widest font-mono text-white">EVT Object (application/etp+json)</h4>
+          <h4 className="text-sm font-bold opacity-40 uppercase tracking-widest font-mono text-white">EVT Object (Snapshot)</h4>
           <div className="bg-black/80 p-6 rounded-xl border etp-border font-mono text-[10px] h-64 overflow-y-auto custom-scrollbar">
             <pre className="text-green-500/80">
               {JSON.stringify(result.event, null, 2)}
@@ -358,33 +367,33 @@ const SpecSection = () => (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center gap-4 mb-12">
         <Terminal className="text-orange-500" />
-        <h2 className="text-3xl font-bold tracking-tight text-white">Protocol Specification v0.1</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-white">Event Transport Protocol v0.1</h2>
       </div>
       
       <div className="space-y-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div className="space-y-4">
-            <h4 className="text-sm border-l-2 border-orange-500 pl-4 font-bold uppercase tracking-widest font-mono text-white/50">Core Intent</h4>
+            <h4 className="text-sm border-l-2 border-orange-500 pl-4 font-bold uppercase tracking-widest font-mono text-white/50">Core Identity Foundation</h4>
             <p className="text-white/70 text-sm leading-relaxed">
-              ETP moves away from static snapshots (.ics) and fragmented provider APIs. By treating events as living objects with persistent URIs, we enable true cross-platform synchronization.
+              ETP uses <strong>EIDs</strong> (Immutable Event Identities) based on ULIDs to ensure every event state is uniquely addressable and sortable across the internet.
             </p>
             <ul className="space-y-2 text-xs text-white/50 font-mono">
-              <li className="flex items-center gap-2 text-white"><ArrowRight size={10} className="text-orange-500" /> URI: etp://eventId</li>
-              <li className="flex items-center gap-2 text-white"><ArrowRight size={10} className="text-orange-500" /> Type: application/etp+json</li>
-              <li className="flex items-center gap-2 text-white"><ArrowRight size={10} className="text-orange-500" /> Scope: internet-native</li>
+              <li className="flex items-center gap-2 text-white"><ArrowRight size={10} className="text-orange-500" /> EID Format: evt_[ULID]</li>
+              <li className="flex items-center gap-2 text-white"><ArrowRight size={10} className="text-orange-500" /> Serialization: application/etp+json</li>
+              <li className="flex items-center gap-2 text-white"><ArrowRight size={10} className="text-orange-500" /> Scheme: etp:// identity anchor</li>
             </ul>
           </div>
           <div className="p-6 bg-white/5 border etp-border rounded-xl">
              <Code size={18} className="mb-4 opacity-30 text-white" />
-             <p className="text-xs font-mono opacity-50 mb-2 text-white/70">Registration Sample</p>
+             <p className="text-xs font-mono opacity-50 mb-2 text-white/70">Authoritative Mutation</p>
              <pre className="text-[10px] font-mono text-orange-400">
 {`POST /api/e
 Content-Type: application/etp+json
 
 {
   "title": "Protocol Sync",
-  "start": "2024-06-01T10:00:00Z",
-  "dynamic": true
+  "start": "2026-06-01T10:00:00Z",
+  "origin": "https://node.etp.dev"
 }`}
              </pre>
           </div>
@@ -393,18 +402,18 @@ Content-Type: application/etp+json
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="p-6 space-y-3">
              <Server size={18} className="text-orange-500" />
-             <h5 className="font-bold text-white">Subscription Model</h5>
-             <p className="text-[11px] opacity-50 text-white/60">Calendars don't import, they subscribe to the EVT stream URL provided by the router.</p>
+             <h5 className="font-bold text-white">State Propagation</h5>
+             <p className="text-[11px] opacity-50 text-white/60">ETP shifts from "importing snapshots" to "subscribing to streams" of canonical event objects.</p>
           </div>
           <div className="p-6 space-y-3">
              <Navigation size={18} className="text-orange-500" />
-             <h5 className="font-bold text-white">Device Routing</h5>
-             <p className="text-[11px] opacity-50 text-white/60">Routers detect UA and serve webcal, desktop deep links, or Android/iOS intent filters.</p>
+             <h5 className="font-bold text-white">Universal Routing</h5>
+             <p className="text-[11px] opacity-50 text-white/60">The router resolves EIDs to native platform protocols like webcal or EVT streaming endpoints.</p>
           </div>
           <div className="p-6 space-y-3">
-             <Plus size={18} className="text-orange-500" />
-             <h5 className="font-bold text-white">Agent Awareness</h5>
-             <p className="text-[11px] opacity-50 text-white/60">JSON-first design allows AI agents to negotiate meeting times via ETP handshakes.</p>
+             <Activity size={18} className="text-orange-500" />
+             <h5 className="font-bold text-white">Agent Ready</h5>
+             <p className="text-[11px] opacity-50 text-white/60">JSON-first schema enables AI agents to negotiate and synchronize meeting states autonomously.</p>
           </div>
         </div>
       </div>
