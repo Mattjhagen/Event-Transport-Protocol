@@ -5,11 +5,36 @@ import { z } from "zod";
  * MIME Type: application/etp+json
  */
 
+export const ETPEventLifecycle = z.enum([
+  "draft",
+  "scheduled",
+  "updated",
+  "cancelled",
+  "completed",
+  "archived"
+]);
+
+export type ETPEventLifecycle = z.infer<typeof ETPEventLifecycle>;
+
 export const ETPEventSchema = z.object({
-  id: z.string().uuid().optional(),
-  v: z.string().default("0.1"),
-  created: z.string().datetime().optional(),
-  updated: z.string().datetime().optional(),
+  /** EID: Immutable Event Identity (UUID v4 recommended) */
+  eid: z.string().uuid(),
+  
+  /** Alias: Human-readable slug (optional identifier) */
+  alias: z.string().regex(/^[a-z0-9-]+$/).optional(),
+  
+  /** Versioning: Monotonic version count */
+  v: z.number().int().min(1).default(1),
+  
+  /** Timestamps */
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+  
+  /** Lifecycle State */
+  lifecycle: ETPEventLifecycle.default("scheduled"),
+  
+  /** Protocol version compatibility */
+  proto: z.string().default("0.1"),
   
   // Core Data
   title: z.string().min(1).max(255),
@@ -23,24 +48,26 @@ export const ETPEventSchema = z.object({
     }).optional()
   }).optional(),
   
-  // Temporal
+  // Temporal Logic
   start: z.string().datetime(),
   end: z.string().datetime(),
   timezone: z.string().default("UTC"),
   
   // Participant Logic
-  status: z.enum(["confirmed", "tentative", "cancelled"]).default("confirmed"),
   organizer: z.object({
     name: z.string(),
     contact: z.string() // etp://, email, or tel
   }).optional(),
   
-  // ETP Features
-  dynamic: z.boolean().default(true),
-  subscription_url: z.string().url().optional(),
+  // ETP Synchronization Strategy
+  sync: z.object({
+    strategy: z.enum(["static", "poll", "stream"]).default("poll"),
+    stream_url: z.string().url().optional(),
+    poll_interval: z.number().int().optional(), // Seconds
+  }).default({ strategy: "poll", poll_interval: 3600 }),
   
-  // Metadata for routing
-  metadata: z.record(z.string(), z.any()).optional()
+  // Custom Extensions
+  ext: z.record(z.string(), z.any()).optional()
 });
 
 export type ETPEvent = z.infer<typeof ETPEventSchema>;

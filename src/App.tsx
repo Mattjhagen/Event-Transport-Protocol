@@ -127,7 +127,7 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
     start: new Date(Date.now() + 86400000).toISOString().slice(0, 16),
     end: new Date(Date.now() + 86460000).toISOString().slice(0, 16),
     location: "Stockholm / Metaverse",
-    timezone: "UTC"
+    alias: "etp-launch-2026"
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,8 +142,7 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
           start: new Date(formData.start).toISOString(),
           end: new Date(formData.end).toISOString(),
           location: { name: formData.location },
-          status: "confirmed",
-          dynamic: true
+          sync: { strategy: "poll", poll_interval: 3600 }
         })
       });
       const data = await response.json();
@@ -159,7 +158,7 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
     <div className="p-10 border etp-border rounded-2xl bg-white/5">
       <div className="flex items-center gap-2 mb-8">
         <Plus size={18} className="text-orange-500" />
-        <span className="mono-label">Protocol Demo / Link Generator</span>
+        <span className="mono-label">Protocol Demo / EID Registration</span>
       </div>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -173,12 +172,12 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-mono opacity-40 uppercase">Location</label>
+            <label className="text-xs font-mono opacity-40 uppercase">Alias (optional)</label>
             <input 
               className="w-full bg-transparent border-b etp-border py-2 focus:border-orange-500 outline-none transition-colors text-white"
-              value={formData.location}
-              onChange={e => setFormData({...formData, location: e.target.value})}
-              placeholder="Location..."
+              value={formData.alias}
+              onChange={e => setFormData({...formData, alias: e.target.value})}
+              placeholder="launch-slug"
             />
           </div>
           <div className="space-y-2">
@@ -200,20 +199,12 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
             />
           </div>
         </div>
-        <div className="space-y-2">
-          <label className="text-xs font-mono opacity-40 uppercase">Description</label>
-          <textarea 
-            className="w-full bg-transparent border-b etp-border py-2 focus:border-orange-500 outline-none transition-colors h-20 resize-none text-white"
-            value={formData.description}
-            onChange={e => setFormData({...formData, description: e.target.value})}
-          />
-        </div>
         <button 
           disabled={loading}
           type="submit"
           className="w-full py-4 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 group cursor-pointer"
         >
-          {loading ? <RefreshCcw className="animate-spin" /> : <><Globe size={18} /> Generate Universal ETP Link</>}
+          {loading ? <RefreshCcw className="animate-spin" /> : <><Globe size={18} /> Register Event (EID)</>}
           <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
         </button>
       </form>
@@ -221,7 +212,7 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
   );
 };
 
-const SuccessPanel = ({ result, onReset }: { result: any, onReset: () => void }) => {
+const SuccessPanel = ({ result, onReset }: { result: any, onReset: () => void, key?: string }) => {
   const [copied, setCopied] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, id: string) => {
@@ -239,48 +230,39 @@ const SuccessPanel = ({ result, onReset }: { result: any, onReset: () => void })
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-2">
           <Activity size={20} className="text-orange-500" />
-          <span className="mono-label">Event Registered Successully</span>
+          <span className="mono-label">EID Registered Sucessfully</span>
         </div>
-        <button onClick={onReset} className="text-xs underline opacity-50 hover:opacity-100 text-white cursor-pointer">Create Another</button>
+        <button onClick={onReset} className="text-xs underline opacity-50 hover:opacity-100 text-white cursor-pointer">Register New Identity</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="space-y-6">
           <div className="p-6 bg-black/40 rounded-xl border etp-border space-y-4">
-            <h4 className="text-sm font-bold opacity-40 uppercase tracking-widest font-mono text-white">Universal Link</h4>
+            <h4 className="text-sm font-bold opacity-40 uppercase tracking-widest font-mono text-white">Universal Routing Link</h4>
             <div className="flex items-center justify-between bg-black/60 p-3 rounded border etp-border">
               <code className="text-xs truncate w-48 text-orange-400">{result.links.universal}</code>
               <button onClick={() => copyToClipboard(result.links.universal, 'link')} className="p-2 hover:bg-white/10 rounded transition-colors text-white cursor-pointer">
                 {copied === 'link' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
               </button>
             </div>
-            <p className="text-[10px] opacity-40 italic text-white/70">This link automatically detects device capability and routes to native calendar experiences or ETP clients.</p>
+            <p className="text-[10px] opacity-40 italic text-white/70">Routing resolves EID to native platform protocols or EVT stream endpoints.</p>
           </div>
 
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-white/5 border etp-border flex items-center justify-center">
-                <Calendar size={20} className="text-white" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-white">Standard ICS Fallback</p>
-                <a href={result.links.ics} className="text-[10px] text-orange-500 hover:underline">Download Legacy .ics</a>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center">
-                <Activity size={20} className="text-orange-500" />
+                <Terminal size={20} className="text-orange-500" />
               </div>
               <div>
-                <p className="text-xs font-bold text-white">ETP Live Stream</p>
-                <p className="text-[10px] opacity-50 text-white/50">Enabled via EVT object</p>
+                <p className="text-xs font-bold text-white">EID Identity</p>
+                <p className="text-[10px] text-orange-500 font-mono">{result.event.eid}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <h4 className="text-sm font-bold opacity-40 uppercase tracking-widest font-mono text-white">EVT Payload</h4>
+          <h4 className="text-sm font-bold opacity-40 uppercase tracking-widest font-mono text-white">EVT Object (application/etp+json)</h4>
           <div className="bg-black/80 p-6 rounded-xl border etp-border font-mono text-[10px] h-64 overflow-y-auto custom-scrollbar">
             <pre className="text-green-500/80">
               {JSON.stringify(result.event, null, 2)}
@@ -305,8 +287,8 @@ const EventDetails = ({ id }: { id: string }) => {
       });
   }, [id]);
 
-  if (loading) return <div className="p-20 text-center mono-label animate-pulse">Routing Protocol Stream...</div>;
-  if (!event) return <div className="p-20 text-center mono-label">Event ID {id} not found in the global transport layer.</div>;
+  if (loading) return <div className="p-20 text-center mono-label animate-pulse">Resolving EID Protocol Handshake...</div>;
+  if (!event) return <div className="p-20 text-center mono-label">Identity {id} not found in transport layer.</div>;
 
   return (
     <motion.div 
@@ -317,54 +299,54 @@ const EventDetails = ({ id }: { id: string }) => {
       <div className="absolute top-0 left-0 w-full h-2 bg-orange-500" />
       <div className="flex justify-between items-start mb-8">
         <div>
-          <span className="px-2 py-0.5 bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[10px] font-mono rounded uppercase tracking-widest">{event.status}</span>
+          <span className="px-2 py-0.5 bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[10px] font-mono rounded uppercase tracking-widest">{event.lifecycle}</span>
         </div>
         <div className="text-right">
-          <p className="mono-label text-[10px]">Version {event.v}</p>
-          <p className="text-[9px] opacity-30 font-mono text-white">{event.id}</p>
+          <p className="mono-label text-[10px]">EVT v{event.v}</p>
+          <p className="text-[9px] opacity-30 font-mono text-white">{event.eid}</p>
         </div>
       </div>
 
       <h3 className="text-4xl font-bold tracking-tighter mb-4 text-white">{event.title}</h3>
-      <p className="text-white/60 mb-8 leading-relaxed">{event.description}</p>
+      {event.description && <p className="text-white/60 mb-8 leading-relaxed">{event.description}</p>}
 
       <div className="grid grid-cols-2 gap-6 mb-10 pb-10 border-b etp-border">
         <div className="space-y-1">
           <p className="mono-label">Starting</p>
           <div className="flex items-center gap-2">
             <Clock size={14} className="text-orange-500" />
-            <span className="font-bold text-white">{new Date(event.start).toLocaleString()}</span>
+            <span className="font-bold text-white tracking-tight">{new Date(event.start).toLocaleString()}</span>
           </div>
         </div>
         <div className="space-y-1">
           <p className="mono-label">Ending</p>
           <div className="flex items-center gap-2">
             <Clock size={14} className="text-orange-500" />
-            <span className="font-bold text-white">{new Date(event.end).toLocaleString()}</span>
+            <span className="font-bold text-white tracking-tight">{new Date(event.end).toLocaleString()}</span>
           </div>
         </div>
         <div className="space-y-1 col-span-2">
-          <p className="mono-label">Location</p>
+          <p className="mono-label">Location Identity</p>
           <div className="flex items-center gap-2">
             <MapPin size={14} className="text-orange-500" />
-            <span className="font-bold text-white">{event.location?.name}</span>
+            <span className="font-bold text-white tracking-tight">{event.location?.name}</span>
           </div>
         </div>
       </div>
 
       <div className="flex gap-4">
         <button className="flex-1 py-3 bg-white text-black font-bold rounded-lg hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer">
-          <Calendar size={18} /> Add to Calendar
+          <Calendar size={18} /> Add to Calendar (ICS)
         </button>
         <button className="px-5 py-3 border etp-border rounded-lg hover:bg-white/5 transition-colors text-white cursor-pointer">
           <ExternalLink size={18} />
         </button>
       </div>
 
-      {event.dynamic && (
+      {event.sync.strategy !== 'static' && (
         <div className="mt-8 flex items-center gap-2 justify-center text-[10px] font-mono text-green-500/60 uppercase tracking-widest">
           <div className="w-1 h-1 bg-green-500 rounded-full animate-ping" />
-          Live synchronization active
+          Synchronization Strategy: {event.sync.strategy} Active
         </div>
       )}
     </motion.div>

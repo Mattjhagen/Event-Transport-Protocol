@@ -22,45 +22,66 @@ const eventStore = new Map<string, ETPEvent>();
 // POST /api/e: Register a new event object
 app.post("/api/e", async (c) => {
   const body = await c.req.json();
-  const validation = ETPEventSchema.safeParse(body);
   
-  if (!validation.success) {
-    return c.json({ error: "Invalid ETP Event Object", details: validation.error }, 400);
-  }
-
-  const id = uuidv4();
+  const eid = uuidv4();
   const now = new Date().toISOString();
   
-  const etpEvent: ETPEvent = {
-    ...validation.data,
-    id,
-    created: now,
-    updated: now
+  // Inject protocol defaults
+  const eventPayload = {
+    ...body,
+    eid,
+    v: 1, // Start at version 1
+    created_at: now,
+    updated_at: now,
+    lifecycle: body.lifecycle || "scheduled",
+    proto: "0.1"
   };
 
-  eventStore.set(id, etpEvent);
+  const validation = ETPEventSchema.safeParse(eventPayload);
+  
+  if (!validation.success) {
+    return c.json({ error: "Invalid EVT Object", details: validation.error }, 400);
+  }
+
+  const etpEvent = validation.data;
+  eventStore.set(eid, etpEvent);
 
   const baseUrl = process.env.APP_URL || "http://localhost:3000";
+  
+  c.header("X-ETP-EID", eid);
+  c.header("X-ETP-Version", "0.1");
   
   return c.json({
     event: etpEvent,
     links: {
-      etp: `etp://${id}`,
-      universal: `${baseUrl}/e/${id}`,
-      ics: `${baseUrl}/e/${id}.ics`
+      etp: `etp://${eid}`,
+      universal: `${baseUrl}/e/${eid}`,
+      ics: `${baseUrl}/e/${eid}.ics`
     }
   }, 201);
 });
 
-// GET /api/e/:id: Fetch raw EVT object
+// GET /api/e/:id: Fetch raw EVT object (supports EID or Alias)
 app.get("/api/e/:id", (c) => {
   const id = c.req.param("id");
-  const event = eventStore.get(id);
+  let event = eventStore.get(id);
+
+  // Simple alias lookup (if not found by ID)
+  if (!event) {
+    event = Array.from(eventStore.values()).find(e => e.alias === id);
+  }
   
   if (!event) return c.json({ error: "Event not found" }, 404);
   
   c.header("Content-Type", "application/etp+json");
-  c.header("X-ETP-Version", "0.1");
+  c.header("X-ETP-EID", event.eid);
+  c.header("X-ETP-Version", event.proto);
+  
+  // Cache control for pollers
+  if (event.sync.strategy === "poll") {
+    c.header("X-Poll-Interval", String(event.sync.poll_interval));
+  }
+
   return c.json(event);
 });
 
@@ -70,14 +91,21 @@ app.get("/api/e/:id", (c) => {
 
 app.get("/e/:id", (c) => {
   const id = c.req.param("id");
-  const event = eventStore.get(id);
+  let event = eventStore.get(id);
   
-  if (!event) return c.text("Event not found in ETP network", 404);
+  if (!event) {
+    event = Array.from(eventStore.values()).find(e => e.alias === id);
+  }
+
+  if (!event) return c.text("Event Identity not found", 404);
 
   const userAgent = c.req.header("user-agent") || "";
   const accept = c.req.header("accept") || "";
   
   const routing = detectPlatform(userAgent, accept);
+
+  // Canonical EID Header
+  c.header("X-ETP-EID", event.eid);
 
   // Core Protocol Handshake
   if (routing.platform === 'etp-client') {
@@ -87,13 +115,8 @@ app.get("/e/:id", (c) => {
   }
 
   // Native Deep Linking or Redirects
-  if (routing.recommendedAction === 'webcal' || routing.recommendedAction === 'native') {
-    // In a production environment, we'd handle 302 to webcal://
-    // For the UI preview, we'll redirect to the web app for a rich view
-    return c.redirect(`/?id=${id}`);
-  }
-
-  return c.redirect(`/?id=${id}`);
+  // Always append EID to query to ensure UI knows canonical state
+  return c.redirect(`/?id=${event.eid}`);
 });
 
 /**
@@ -132,8 +155,15 @@ async function main() {
         return await next();
       }
 
+      // Vite middleware needs standard node request/response
+      // The @hono/node-server provides access to raw objects
+      const nodeReq = (c.req as any).raw;
+      const nodeRes = (c.res as any).raw;
+
+      if (!nodeReq || !nodeRes) return await next();
+
       const res = await new Promise<any>((resolve) => {
-        vite.middlewares(c.req.raw as any, c.res.raw as any, resolve);
+        vite.middlewares(nodeReq, nodeRes, resolve);
       });
       return res;
     });
