@@ -1,0 +1,13 @@
+{
+  "event": {
+    "title": "ETP Technical Steering Committee",
+    "description": "Monthly sync on protocol evolution.",
+    "start": "2026-06-01T15:00:00Z",
+    "end": "2026-06-01T16:00:00Z",
+    "location": {
+      "name": "ETP Node #1"
+    },
+    "dynamic": true,
+    "v": "0.1"
+  }
+}

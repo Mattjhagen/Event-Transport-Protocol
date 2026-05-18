@@ -58,6 +58,9 @@ app.get("/api/e/:id", (c) => {
   const event = eventStore.get(id);
   
   if (!event) return c.json({ error: "Event not found" }, 404);
+  
+  c.header("Content-Type", "application/etp+json");
+  c.header("X-ETP-Version", "0.1");
   return c.json(event);
 });
 
@@ -78,6 +81,8 @@ app.get("/e/:id", (c) => {
 
   // Core Protocol Handshake
   if (routing.platform === 'etp-client') {
+    c.header("Content-Type", "application/etp+json");
+    c.header("X-ETP-Version", "0.1");
     return c.json(event);
   }
 

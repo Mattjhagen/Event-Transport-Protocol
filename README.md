@@ -1,20 +1,33 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Event Transport Protocol (ETP)
+**Standardizing Live Event State Across the Internet**
 
-# Run and deploy your AI Studio app
+ETP is an open protocol designed to replace static event files (.ics) and fragmented scheduling APIs with canonical, synchronized event objects.
 
-This contains everything you need to run your app locally.
+## Core Concepts
+- **EVT Objects**: Events are stateful JSON objects, not static files.
+- **Permanent URI**: Every event has a unique `etp://` identity.
+- **Subscription Model**: Calendar clients subscribe to dynamic streams instead of importing snapshots.
+- **Universal Routing**: A single gateway link (`https://.../e/{id}`) routes users to the best native or ETP-aware experience based on device capability.
 
-View your app in AI Studio: https://ai.studio/apps/94cd50cb-96ac-4ad2-9b23-ed9a77ab13be
+## Repository Structure
+- `/spec`: Formal protocol specifications.
+- `/docs`: High-level guides and architectural overviews.
+- `/src`: Reference implementation of the **ETP Router** and Node.
+- `/sdk`: Experimental client libraries for ETP integration.
+- `/examples`: Payload examples and integration patterns.
 
-## Run Locally
+## Technical Summary
+- **MIME Type**: `application/etp+json`
+- **URI Scheme**: `etp://`
+- **Current Version**: v0.1 (Draft)
 
-**Prerequisites:**  Node.js
+## Getting Started
+The current repository contains a reference **ETP Router** implementation built with Hono and React.
 
+```bash
+npm install
+npm run dev
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+*ETP is an open internet-standard project. We seek to build plumbing, not platforms.*
