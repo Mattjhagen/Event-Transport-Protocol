@@ -8,7 +8,8 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 
 import { WebSocketServer } from "ws";
-import { ETPEventSchema, ETPEvent, ETPCapabilities } from "./src/types";
+import crypto from "crypto";
+import { ETPEventSchema, ETPEvent, ETPCapabilities, ETPNodeIdentity } from "./src/types";
 import { detectPlatform } from "./src/lib/router";
 import { generateICS } from "./src/lib/ics";
 
@@ -24,11 +25,34 @@ type ETPHandler = (data: any) => void;
 const subscribers = new Map<string, Set<ETPHandler>>();
 
 /**
+ * --- ETP NODE IDENTITY ---
+ */
+const NODE_IDENTITY: ETPNodeIdentity = {
+  node_id: "node.eventtransport.dev",
+  public_key: "ed25519_pk_8v2j9k...",
+  algorithm: "ed25519",
+  metadata: {
+    operator: "ETP Foundation",
+    region: "us-west-1",
+    trust_score: 0.99
+  }
+};
+
+/**
+ * SIG-HELPERS: Lightweight authenticity simulation
+ * In a real node, this would use Ed25519 private keys.
+ */
+function signPayload(payload: any): string {
+  const content = JSON.stringify(payload);
+  return crypto.createHmac("sha256", "etp-demo-secret").update(content).digest("hex");
+}
+
+/**
  * --- ETP PROTOCOL METADATA ---
  */
 
 app.get("/api/capabilities", (c) => {
-  const capabilities: ETPCapabilities = {
+  const capabilities: ETPCapabilities & { identity: ETPNodeIdentity } = {
     version: "0.1",
     transports: ["http", "sse", "ws"],
     features: {
@@ -36,7 +60,8 @@ app.get("/api/capabilities", (c) => {
       delta_compression: false,
       heartbeat_interval: 15,
       max_replay_depth: 50
-    }
+    },
+    identity: NODE_IDENTITY
   };
   return c.json(capabilities);
 });
@@ -138,6 +163,11 @@ app.post("/api/e", async (c) => {
     series_id: body.series_id,
     occurrence_id: body.occurrence_id,
     proto: "0.1",
+    auth: {
+      method: "ed25519",
+      pubkey: NODE_IDENTITY.public_key,
+      signature: ""
+    },
     sync: body.sync || { 
       strategy: "stream", 
       stream_url: `${baseUrl}/api/e/${eid}/stream`,
@@ -152,6 +182,11 @@ app.post("/api/e", async (c) => {
   }
 
   const etpEvent = validation.data;
+  // Sign the initial snapshot
+  if (etpEvent.auth) {
+    etpEvent.auth.signature = signPayload({ eid: etpEvent.eid, v: etpEvent.v, payload: etpEvent.title });
+  }
+  
   eventStore.set(eid, etpEvent);
   deltaHistory.set(eid, [{ type: 'event.created', v: 1, eid, event: etpEvent }]);
 
@@ -202,6 +237,11 @@ app.patch("/api/e/:id", async (c) => {
   }
 
   const finalEvent = validation.data;
+  // Authoritative Signature for vNext
+  if (finalEvent.auth) {
+    finalEvent.auth.signature = signPayload({ eid: finalEvent.eid, v: finalEvent.v, cid: mutationId });
+  }
+
   eventStore.set(id, finalEvent);
   if (mutationId) processedMutations.add(mutationId);
 
@@ -212,7 +252,8 @@ app.patch("/api/e/:id", async (c) => {
     eid: finalEvent.eid,
     changes: body,
     event: finalEvent, // v0.1 simplification
-    mutation_id: mutationId
+    mutation_id: mutationId,
+    signature: signPayload({ eid: finalEvent.eid, v: finalEvent.v, delta: true })
   };
   
   const history = deltaHistory.get(id) || [];

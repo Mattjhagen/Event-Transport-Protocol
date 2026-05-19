@@ -114,15 +114,42 @@ export const ETPCapabilitiesProtocol = z.object({
 export type ETPCapabilities = z.infer<typeof ETPCapabilitiesProtocol>;
 
 /**
+ * ETP Trust and Authenticity States
+ */
+export const ETPTrustState = z.enum([
+  "authoritative", // Direct from origin node, verified signature
+  "trusted",       // From a known trusted relay, verified path
+  "bridged",       // From an interoperability bridge, metadata may be downgraded
+  "downgraded",    // Protocol translated, authenticity lost
+  "unverifiable"   // Verification failed or identity missing
+]);
+export type ETPTrustState = z.infer<typeof ETPTrustState>;
+
+/**
+ * ETP Node Identity
+ */
+export const ETPNodeIdentitySchema = z.object({
+  node_id: z.string(),
+  public_key: z.string().optional(),
+  algorithm: z.enum(["none", "ed25519"]).default("none"),
+  metadata: z.object({
+    operator: z.string().optional(),
+    region: z.string().optional(),
+    trust_score: z.number().optional()
+  }).optional()
+});
+export type ETPNodeIdentity = z.infer<typeof ETPNodeIdentitySchema>;
+
+/**
  * ETP Synchronization Frames
  */
 export type ETPSyncFrame = 
-  | { type: "snapshot.sync"; v: number; event: ETPEvent; fallback?: boolean }
-  | { type: "delta.sync"; v: number; eid: string; changes: Partial<ETPEvent>; event: ETPEvent; mutation_id?: string }
+  | { type: "snapshot.sync"; v: number; event: ETPEvent; fallback?: boolean; signature?: string }
+  | { type: "delta.sync"; v: number; eid: string; changes: Partial<ETPEvent>; event: ETPEvent; mutation_id?: string; signature?: string }
   | { type: "replay.sync"; status: "start" | "end"; since: number; count: number }
   | { type: "heartbeat"; t: number }
   | { type: "error.sync"; code: string; msg: string }
-  | { type: "subscription.state"; state: "active" | "stale" | "recovering" };
+  | { type: "subscription.state"; state: "active" | "stale" | "recovering"; trust?: ETPTrustState };
 
 /**
  * ETP Interoperability and Bridge Metadata

@@ -131,6 +131,7 @@ const LiveMutationDemo = () => {
   const [transport, setTransport] = useState<'sse' | 'ws'>('sse');
   const [syncState, setSyncState] = useState<'IDLE' | 'SYNCHRONIZED' | 'REPLAYING' | 'STALE' | 'OFFLINE'>('IDLE');
   const [nodeCapabilities, setNodeCapabilities] = useState<any>(null);
+  const [verificationState, setVerificationState] = useState<'VERIFIED' | 'UNVERIFIED' | 'AUTHORITATIVE' | 'PENDING'>('PENDING');
   
   const eventSourceRef = useRef<EventSource | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
@@ -218,11 +219,13 @@ const LiveMutationDemo = () => {
       addLog(`${status} (v${data.event.v})`, "sync", data.event.v);
       setEvent(data.event);
       setSyncState('SYNCHRONIZED');
+      setVerificationState(data.event.auth?.signature ? 'AUTHORITATIVE' : 'UNVERIFIED');
       setIsReplaying(false);
     } else if (data.type === 'delta.sync' || data.type === 'event.updated') {
       addLog(`DELTA PROPAGATED (v${data.v})`, "sync", data.v);
       setEvent(data.event);
       setSyncState('SYNCHRONIZED');
+      setVerificationState(data.signature || data.event?.auth?.signature ? 'VERIFIED' : 'UNVERIFIED');
     } else if (data.type === 'subscription.state') {
        addLog(`Subscription ${data.state.toUpperCase()}`, "meta");
     } else if (data.type === 'heartbeat') {
@@ -483,12 +486,14 @@ const LiveMutationDemo = () => {
                 </div>
 
                 {/* ETP Native Client - Updates via SSE */}
-                <motion.div 
-                  animate={event ? { scale: [1, 1.01, 1] } : {}}
-                  className="p-8 rounded-2xl border-2 border-orange-500/10 bg-orange-500/5"
-                >
+                <div className="p-8 rounded-2xl border-2 border-orange-500/10 bg-orange-500/5">
                    <div className="flex justify-between items-center mb-6">
-                      <p className="mono-label text-orange-500 font-bold">ETP Subscriber</p>
+                      <div className="flex flex-col">
+                         <p className="mono-label text-orange-500 font-bold">ETP Subscriber</p>
+                         {nodeCapabilities?.identity && (
+                            <span className="text-[8px] font-mono text-white/30 uppercase">NODE.ID: {nodeCapabilities.identity.node_id}</span>
+                         )}
+                      </div>
                       {event && <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_green]" />}
                    </div>
                    {event ? (
@@ -498,9 +503,15 @@ const LiveMutationDemo = () => {
                         animate={{ opacity: 1 }}
                         className="space-y-4"
                      >
-                       <div className="flex items-center gap-2">
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded ${event.lifecycle === 'cancelled' ? 'bg-red-500' : 'bg-green-500'} text-white font-bold`}>{event.lifecycle.toUpperCase()}</span>
-                          <span className="text-[10px] font-mono text-white/40">v{event.v}</span>
+                       <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                             <span className={`text-[9px] px-1.5 py-0.5 rounded ${event.lifecycle === 'cancelled' ? 'bg-red-500' : 'bg-green-500'} text-white font-bold`}>{event.lifecycle.toUpperCase()}</span>
+                             <span className="text-[10px] font-mono text-white/40">v{event.v}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-black/20 rounded-full border border-white/5">
+                             <Check size={10} className={verificationState === 'UNVERIFIED' ? 'text-red-500' : 'text-green-500'} />
+                             <span className={`text-[8px] font-mono font-bold uppercase tracking-tight ${verificationState === 'UNVERIFIED' ? 'text-red-500' : 'text-green-500'}`}>{verificationState}</span>
+                          </div>
                        </div>
                        <h4 className="text-xl font-bold tracking-tight text-white">{event.title}</h4>
                        <div className="flex items-center gap-2 text-white/40 mb-2">
@@ -528,7 +539,7 @@ const LiveMutationDemo = () => {
                        </div>
                      </motion.div>
                    ) : <div className="h-32 flex items-center justify-center opacity-10">Listening for EIDs...</div>}
-                </motion.div>
+                </div>
              </div>
           </div>
 
@@ -577,9 +588,11 @@ const LiveMutationDemo = () => {
                   >
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-blue-400">frame: {d.type}</span>
-                      <span className="text-[8px] opacity-30">v{d.v}</span>
+                      <span className={`text-[7px] font-mono px-1 rounded ${d.signature ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                        {d.signature ? 'SIGNED' : 'UNSIGNED'}
+                      </span>
                     </div>
-                    <span className="text-white/60 block truncate">{JSON.stringify(d)}</span>
+                    <span className="text-white/60 block truncate font-mono text-[8px]">{JSON.stringify(d)}</span>
                   </motion.div>
                 ))}
                 {streamData.length === 0 && <div className="text-center py-8 opacity-20 uppercase tracking-widest">No Active Subscription</div>}
