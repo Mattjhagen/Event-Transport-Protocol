@@ -1,6 +1,6 @@
 {
   "name": "ETP: Event Transport Protocol",
-  "description": "An open protocol for transporting and synchronizing live event state across calendars, apps, and AI agents. Features an event router for cross-platform synchronization.",
+  "description": "ETP (Event Transport Protocol) Reference Node & SDK. A transport-neutral synchronization protocol for authoritative event-state propagation with replay, trust, and multi-binding support.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

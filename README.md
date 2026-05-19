@@ -22,7 +22,14 @@ ETP is an open protocol designed to replace static event files (.ics) and fragme
 - **Current Version**: v0.1 (Draft)
 
 ## Getting Started
-The current repository contains a reference **ETP Router** implementation built with Hono and React.
+### ⚡ High-Speed Integration
+Integrate ETP into your application in under 5 minutes using our reference SDK.
+
+- [**Quickstart Guide**](./docs/QUICKSTART.md)
+- [**Protocol Specification (v0.1)**](./spec/v0.1.md)
+
+### Running the Reference Node
+The current repository contains a reference **ETP Node & Router** implementation built with Hono, Express, and React.
 
 ```bash
 npm install

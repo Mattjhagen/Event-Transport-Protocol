@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { ETPEvent } from "./types";
 
+import { ETPClient } from "../sdk/etp-client";
+
 // --- Components ---
 
 const Header = () => (
@@ -133,140 +135,84 @@ const LiveMutationDemo = () => {
   const [nodeCapabilities, setNodeCapabilities] = useState<any>(null);
   const [verificationState, setVerificationState] = useState<'VERIFIED' | 'UNVERIFIED' | 'AUTHORITATIVE' | 'PENDING'>('PENDING');
   
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const socketRef = useRef<WebSocket | null>(null);
+  const etpClientRef = useRef<ETPClient | null>(null);
 
   const addLog = (msg: string, type: 'info' | 'sync' | 'error' | 'meta' = 'info', v?: number) => {
     setLog(prev => [{ msg, type, v }, ...prev].slice(0, 15));
   };
 
-  const fetchCapabilities = async () => {
-    try {
-      const res = await fetch("/api/capabilities");
-      const data = await res.json();
-      setNodeCapabilities(data);
-      addLog(`Capability Negotiated: ETP v${data.version}`, "meta");
-    } catch (e) {
-      addLog("Capability Negotiation Failed", "error");
-    }
-  };
-
   useEffect(() => {
+    const fetchCapabilities = async () => {
+      try {
+        const res = await fetch("/api/capabilities");
+        const data = await res.json();
+        setNodeCapabilities(data);
+        addLog(`Capability Negotiated: ETP v${data.version}`, "meta");
+      } catch (e) {
+        addLog("Capability Negotiation Failed", "error");
+      }
+    };
     fetchCapabilities();
   }, []);
 
-  const subscribeSSE = (since?: number) => {
-    if (!event) return;
-    setSyncState('REPLAYING');
-    
-    const url = `/api/e/${event.eid}/stream${since ? `?since=${since}` : ''}`;
-    addLog(`INIT SSE TRANS-BIND (since v${since || 0})`, "info");
-    
-    const es = new EventSource(url);
-    
-    es.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-      handleFrame(data);
-    };
-
-    es.onerror = () => {
-      setSyncState('OFFLINE');
-      addLog("SSE Transport Disconnected", "error");
-    };
-
-    eventSourceRef.current = es;
-  };
-
-  const subscribeWS = (since?: number) => {
-    if (!event) return;
-    setSyncState('REPLAYING');
-    
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${protocol}//${window.location.host}/api/etp-ws`;
-    
-    addLog(`INIT WS TRANS-BIND (since v${since || 0})`, "info");
-    
-    const ws = new WebSocket(url);
-    
-    ws.onopen = () => {
-      ws.send(JSON.stringify({
-        type: 'etp.subscribe',
-        eid: event.eid,
-        since: since || 0
-      }));
-    };
-
-    ws.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-      handleFrame(data);
-    };
-
-    ws.onerror = () => {
-      setSyncState('OFFLINE');
-      addLog("WS Transport Failure", "error");
-    };
-
-    ws.onclose = () => {
-      if (syncState !== 'OFFLINE') setSyncState('OFFLINE');
-    };
-
-    socketRef.current = ws;
-  };
-
-  const handleFrame = (data: any) => {
-    if (data.type === 'snapshot.sync') {
-      const status = data.fallback ? 'FALLBACK RESYNC' : 'SNAPSHOT RECEIVED';
-      addLog(`${status} (v${data.event.v})`, "sync", data.event.v);
-      setEvent(data.event);
-      setSyncState('SYNCHRONIZED');
-      setVerificationState(data.event.auth?.signature ? 'AUTHORITATIVE' : 'UNVERIFIED');
-      setIsReplaying(false);
-    } else if (data.type === 'delta.sync' || data.type === 'event.updated') {
-      addLog(`DELTA PROPAGATED (v${data.v})`, "sync", data.v);
-      setEvent(data.event);
-      setSyncState('SYNCHRONIZED');
-      setVerificationState(data.signature || data.event?.auth?.signature ? 'VERIFIED' : 'UNVERIFIED');
-    } else if (data.type === 'subscription.state') {
-       addLog(`Subscription ${data.state.toUpperCase()}`, "meta");
-    } else if (data.type === 'heartbeat') {
-       // Minimal visualization for heartbeats
-    }
-    
-    if (data.type !== 'heartbeat') {
-      setStreamData(prev => [data, ...prev].slice(0, 10));
-    }
-  };
-
-  const cleanup = () => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
-    if (socketRef.current) {
-      socketRef.current.close();
-      socketRef.current = null;
-    }
-  };
-
   useEffect(() => {
-    if (event && !eventSourceRef.current && !socketRef.current && !isReplaying) {
-      if (transport === 'sse') subscribeSSE();
-      else subscribeWS();
+    if (!etpClientRef.current) {
+      etpClientRef.current = new ETPClient({
+        nodeUrl: window.location.origin,
+        transport: transport
+      });
+
+      etpClientRef.current.onFrame((data: any) => {
+        if (data.type === 'snapshot.sync') {
+          const status = data.fallback ? 'FALLBACK RESYNC' : 'SNAPSHOT RECEIVED';
+          addLog(`${status} (v${data.event.v})`, "sync", data.event.v);
+          setEvent(data.event);
+          setSyncState('SYNCHRONIZED');
+          setVerificationState(data.event.auth?.signature ? 'AUTHORITATIVE' : 'UNVERIFIED');
+          setIsReplaying(false);
+        } else if (data.type === 'delta.sync' || data.type === 'event.updated') {
+          addLog(`DELTA PROPAGATED (v${data.v})`, "sync", data.v);
+          setEvent(data.event);
+          setSyncState('SYNCHRONIZED');
+          setVerificationState(data.signature || data.event?.auth?.signature ? 'VERIFIED' : 'UNVERIFIED');
+        } else if (data.type === 'subscription.state') {
+           addLog(`Subscription ${data.state.toUpperCase()}`, "meta");
+        }
+        
+        if (data.type !== 'heartbeat') {
+          setStreamData(prev => [data, ...prev].slice(0, 10));
+        }
+      });
+
+      etpClientRef.current.onStateChange((state) => {
+        switch (state) {
+          case "CONNECTING": setSyncState('REPLAYING'); break;
+          case "CONNECTED": setSyncState('SYNCHRONIZED'); break;
+          case "DISCONNECTED": setSyncState('OFFLINE'); break;
+          case "ERROR": addLog("Transport Failure", "error"); setSyncState('OFFLINE'); break;
+        }
+      });
     }
 
-    return cleanup;
+    if (event && !isReplaying) {
+      etpClientRef.current.subscribe(event.eid);
+    }
+
+    return () => {
+      etpClientRef.current?.disconnect();
+      etpClientRef.current = null;
+    };
   }, [event?.eid, isReplaying, transport]);
 
   const simulateReconnect = () => {
-    if (!event) return;
+    if (!event || !etpClientRef.current) return;
     setIsReplaying(true);
     setSyncState('STALE');
-    addLog("Transport Drop Triggered...", "meta");
-    cleanup();
+    addLog("SDK-Triggered Recovery Flow...", "meta");
+    etpClientRef.current.disconnect();
     
     setTimeout(() => {
-      if (transport === 'sse') subscribeSSE(event.v);
-      else subscribeWS(event.v);
+      etpClientRef.current?.subscribe(event.eid, event.v);
     }, 2000);
   };
 
@@ -316,16 +262,13 @@ const LiveMutationDemo = () => {
     
     addLog(`Broadcasting Mutative Intent: ${type}`, "info");
     
-    await fetch(`/api/e/${event.eid}`, {
-      method: "PATCH",
-      headers: { 
-        "Content-Type": "application/json",
-        "X-Mutation-ID": `mut_${ulid_safe()}`,
-        "X-ETP-If-Version": String(event.v)
-      },
-      body: JSON.stringify(updates)
-    });
-    setLoading(false);
+    try {
+      await etpClientRef.current?.mutate(event.eid, updates, event.v);
+    } catch (e: any) {
+      addLog(`Mutation Error: ${e.message}`, "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const ulid_safe = () => Math.random().toString(36).substring(2, 15);
@@ -360,13 +303,13 @@ const LiveMutationDemo = () => {
           {/* Transport Selection */}
           <div className="flex p-1 bg-white/5 border etp-border rounded-lg">
             <button 
-              onClick={() => { setTransport('sse'); cleanup(); }}
+              onClick={() => { setTransport('sse'); etpClientRef.current?.disconnect(); }}
               className={`flex-1 py-2 text-xs font-bold rounded transition-all ${transport === 'sse' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white'}`}
             >
               SSE Binding
             </button>
             <button 
-              onClick={() => { setTransport('ws'); cleanup(); }}
+              onClick={() => { setTransport('ws'); etpClientRef.current?.disconnect(); }}
               className={`flex-1 py-2 text-xs font-bold rounded transition-all ${transport === 'ws' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white'}`}
             >
               WebSocket Binding
