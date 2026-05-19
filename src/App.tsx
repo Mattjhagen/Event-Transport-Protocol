@@ -29,7 +29,7 @@ import { ETPClient } from "../sdk/etp-client";
 const Header = () => (
   <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between">
     <div className="flex items-center gap-3">
-      <div className="w-8 h-8 bg-white rounded flex items-center justify-center font-bold text-black tracking-tighter shadow-[0_0_20px_rgba(255,255,255,0.1)]">CM</div>
+      <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center font-bold text-black shadow-[0_0_20px_rgba(255,255,255,0.1)]">CM</div>
       <div>
         <h1 className="text-sm font-bold tracking-tight text-white">CMAMeet</h1>
         <p className="text-[10px] mono-label leading-none opacity-40 uppercase tracking-widest">ETP Reference implementation</p>
