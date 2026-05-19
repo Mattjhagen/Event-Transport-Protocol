@@ -29,21 +29,96 @@ import { ETPClient } from "../sdk/etp-client";
 const Header = () => (
   <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between">
     <div className="flex items-center gap-3">
-      <div className="w-8 h-8 bg-white rounded flex items-center justify-center font-bold text-black tracking-tighter">CM</div>
+      <div className="w-8 h-8 bg-white rounded flex items-center justify-center font-bold text-black tracking-tighter shadow-[0_0_20px_rgba(255,255,255,0.1)]">CM</div>
       <div>
         <h1 className="text-sm font-bold tracking-tight text-white">CMAMeet</h1>
-        <p className="text-[10px] mono-label leading-none opacity-40">Powered by ETP v0.1</p>
+        <p className="text-[10px] mono-label leading-none opacity-40 uppercase tracking-widest">ETP Reference implementation</p>
       </div>
     </div>
     <nav className="flex items-center gap-8">
-      <a href="#why" className="text-xs font-medium hover:text-white transition-colors text-white/50">Rationale</a>
+      <a href="#why" className="text-xs font-medium hover:text-white transition-colors text-white/50">The Conflict</a>
+      <a href="#ref-impl" className="text-xs font-medium hover:text-white transition-colors text-white/50">Implementation</a>
       <a href="#demo" className="text-xs font-medium hover:text-white transition-colors text-white/50">Technical Engine</a>
       <div className="h-4 w-[1px] bg-white/10" />
-      <button className="px-3 py-1.5 rounded-full bg-white text-black text-[10px] font-bold uppercase tracking-tight hover:bg-white/90 transition-colors">
-        Open App
-      </button>
+      <a 
+        href="https://github.com/Mattjhagen/CMAMeet" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white text-[10px] font-bold uppercase tracking-tight hover:bg-white/10 transition-colors flex items-center gap-2"
+      >
+        <Code size={12} /> Source
+      </a>
     </nav>
   </header>
+);
+
+const CMAMeetReferenceSection = () => (
+  <section id="ref-impl" className="px-6 py-40 max-w-7xl mx-auto border-t border-white/5">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
+      <div className="relative order-2 lg:order-1">
+        <div className="absolute -inset-4 bg-orange-500/5 blur-2xl rounded-3xl" />
+        <div className="relative bg-[#0A0A0A] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+          <div className="bg-white/5 border-b border-white/10 px-4 py-2 flex items-center justify-between">
+            <div className="flex gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-red-500/20" />
+              <div className="w-2 h-2 rounded-full bg-yellow-500/20" />
+              <div className="w-2 h-2 rounded-full bg-green-500/20" />
+            </div>
+            <div className="text-[10px] font-mono text-white/20">cmameet.app/j/evt_k8s2x9</div>
+          </div>
+          <div className="aspect-video bg-black flex flex-col items-center justify-center p-12 text-center group">
+            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <Zap size={32} className="text-white" />
+            </div>
+            <h4 className="text-xl font-bold text-white mb-2 tracking-tight">Active ETP Binding</h4>
+            <p className="text-sm text-white/40 max-w-xs">Connecting to authoritative origin for real-time synchronization...</p>
+            
+            <div className="mt-8 flex gap-2">
+              <div className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-500 text-[8px] font-bold uppercase tracking-widest">Verified</div>
+              <div className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[8px] font-bold uppercase tracking-widest">TLS 1.3</div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Floating Stat Card */}
+        <div className="absolute -bottom-6 -right-6 bg-white p-6 rounded-2xl shadow-2xl hidden md:block">
+          <p className="text-black text-[10px] font-bold uppercase tracking-widest mb-1">State Latency</p>
+          <p className="text-black text-3xl font-bold tracking-tighter">&lt;85ms</p>
+          <p className="text-black/40 text-[9px] mt-2 font-mono">P99 Global Propagation</p>
+        </div>
+      </div>
+
+      <div className="space-y-8 order-1 lg:order-2">
+        <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-white/40">Reference Implementation</span>
+        <h2 className="text-5xl font-bold tracking-tighter text-white">CMAMeet</h2>
+        <div className="space-y-6 text-white/60 text-lg leading-relaxed font-light">
+          <p>
+            <a href="https://github.com/Mattjhagen/CMAMeet" target="_blank" rel="noopener noreferrer" className="text-white font-medium hover:underline flex items-center gap-1 inline-flex">
+              CMAMeet <ExternalLink size={14} />
+            </a> is the open-source reference for ETP-native meetings. It is a lightweight video platform built specifically to demonstrate why <strong>live event-state</strong> is superior to static invitations.
+          </p>
+          <p>
+            While legacy systems struggle with "ghost invites" and stale links, CMAMeet uses ETP to maintain a persistent, authoritative heartbeat between the meeting organizer and every invited participant.
+          </p>
+        </div>
+
+        <div className="space-y-4 pt-4">
+          {[
+            { t: "Organizer Mutation", d: "Host changes the meeting link or venue." },
+            { t: "ETP Delta Propagation", d: "Incremental JSON patches sent to all listeners." },
+            { t: "Subscriber Synchronization", d: "Calendars and clients update in milliseconds." },
+            { t: "Authoritative Join", d: "Participants join the correct room, every time." }
+          ].map((step, i) => (
+            <div key={i} className="flex items-center gap-4 group">
+              <div className="text-[10px] font-mono text-white/20 w-4">{i + 1}</div>
+              <div className="h-px bg-white/10 flex-1" />
+              <div className="text-xs font-medium text-white/80 group-hover:text-white transition-colors">{step.t}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
 );
 
 const ProblemSolutionSection = () => (
@@ -694,7 +769,7 @@ const Hero = () => (
       transition={{ duration: 0.8, delay: 0.1 }}
       className="text-xl md:text-3xl text-white/40 mb-16 max-w-3xl font-light leading-snug tracking-tight"
     >
-      CMAMeet uses the <strong>Event Transport Protocol</strong> to eliminate meeting drift once and for all. Authoritative, real-time event state for the modern enterprise.
+      Authoritative, real-time event state for the modern enterprise. Powered by <a href="https://github.com/Mattjhagen/CMAMeet" target="_blank" rel="noopener noreferrer" className="text-white border-b border-white/20 hover:border-white transition-colors">CMAMeet</a> and the Event Transport Protocol.
     </motion.p>
 
     <motion.div 
@@ -1026,6 +1101,7 @@ export default function App() {
       <Header />
       <Hero />
       <ProblemSolutionSection />
+      <CMAMeetReferenceSection />
       <ComparisonSection />
       <LiveMutationDemo />
       <section className="px-6 py-40 border-t border-white/5 flex flex-col items-center">
