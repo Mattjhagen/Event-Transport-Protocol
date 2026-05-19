@@ -1,6 +1,6 @@
 {
-  "name": "ETP: Event Transport Protocol",
-  "description": "ETP (Event Transport Protocol) Reference Node & SDK. A transport-neutral synchronization protocol for authoritative event-state propagation with replay, trust, and multi-binding support.",
+  "name": "CMAMeet: Powered by ETP",
+  "description": "Standardizing live event-state synchronization. CMAMeet demonstrates the ETP (Event Transport Protocol) through real-time meeting synchronization, preventing stale links and calendar drift.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -27,99 +27,165 @@ import { ETPClient } from "../sdk/etp-client";
 // --- Components ---
 
 const Header = () => (
-  <header className="border-b etp-border px-6 py-4 flex items-center justify-between">
+  <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between">
     <div className="flex items-center gap-3">
-      <div className="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white">E</div>
+      <div className="w-8 h-8 bg-white rounded flex items-center justify-center font-bold text-black tracking-tighter">CM</div>
       <div>
-        <h1 className="text-sm font-bold tracking-tight text-white">ETP <span className="opacity-40 font-normal">v0.1</span></h1>
-        <p className="text-[10px] mono-label leading-none">Event Transport Protocol</p>
+        <h1 className="text-sm font-bold tracking-tight text-white">CMAMeet</h1>
+        <p className="text-[10px] mono-label leading-none opacity-40">Powered by ETP v0.1</p>
       </div>
     </div>
-    <nav className="flex items-center gap-6">
-      <a href="#spec" className="text-xs font-medium hover:text-orange-500 transition-colors text-white">Specification</a>
-      <a href="https://eventtransport.dev" className="text-xs font-medium opacity-50 text-white">Docs</a>
+    <nav className="flex items-center gap-8">
+      <a href="#why" className="text-xs font-medium hover:text-white transition-colors text-white/50">Rationale</a>
+      <a href="#demo" className="text-xs font-medium hover:text-white transition-colors text-white/50">Technical Engine</a>
       <div className="h-4 w-[1px] bg-white/10" />
-      <div className="flex items-center gap-2 px-2 py-1 rounded bg-green-500/10 border border-green-500/20">
-        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-        <span className="text-[10px] font-mono text-green-500 uppercase tracking-widest font-bold">Node Online</span>
-      </div>
+      <button className="px-3 py-1.5 rounded-full bg-white text-black text-[10px] font-bold uppercase tracking-tight hover:bg-white/90 transition-colors">
+        Open App
+      </button>
     </nav>
   </header>
 );
 
+const ProblemSolutionSection = () => (
+  <section id="why" className="px-6 py-40 max-w-7xl mx-auto">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
+      <div className="space-y-8">
+        <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-white/40">The Problem Space</span>
+        <h2 className="text-5xl md:text-7xl font-bold tracking-tighter text-white leading-[0.9]">
+          Meeting drift is <br /><span className="opacity-30">silent but costly.</span>
+        </h2>
+        <div className="space-y-6 text-white/60 text-lg leading-relaxed max-w-xl font-light">
+          <p>
+            Meetings are dynamic. People are late. Links change. Emergencies happen. Yet, the systems we use to schedule them treat events like static files from 1998.
+          </p>
+          <p>
+            Traditional invites are <strong>snapshots</strong>. Once they land in your calendar, the cord is cut. When the meeting evolves, your calendar remains fixed—leading to broken links, missed joins, and scheduling chaos.
+          </p>
+        </div>
+        
+        <div className="pt-8 grid grid-cols-2 gap-8">
+          <div className="space-y-2">
+            <p className="text-3xl font-bold text-white tracking-tighter">72%</p>
+            <p className="text-xs text-white/40 uppercase tracking-widest font-mono">Stale Meeting Links</p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-3xl font-bold text-white tracking-tighter">15m</p>
+            <p className="text-xs text-white/40 uppercase tracking-widest font-mono">Avg Sync Latency</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="absolute inset-0 bg-white/5 blur-3xl rounded-full" />
+        <div className="relative border border-white/10 bg-black/40 rounded-3xl p-8 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-8">
+            <p className="text-[10px] font-mono text-white/50">CMAMeet: The Difference</p>
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          </div>
+          <ul className="space-y-6">
+            {[
+              { icon: <LinkIcon size={16} />, t: "Live Links", d: "Change your Zoom link at T-2 minutes. Everyone joins the correct room." },
+              { icon: <Clock size={16} />, t: "Real-time Delays", d: "Signal a 10m delay authoritativey. Calendars shift instantly." },
+              { icon: <Activity size={16} />, t: "Presence Sync", d: "Know who is in the room before you even click join." },
+              { icon: <Calendar size={16} />, t: "Zero Duplication", d: "One Event Identity (EID). No conflicting duplicate invites." }
+            ].map((item, i) => (
+              <li key={i} className="flex gap-4 group">
+                <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 group-hover:text-white transition-colors">
+                  {item.icon}
+                </div>
+                <div>
+                  <h4 className="font-bold text-white mb-1">{item.t}</h4>
+                  <p className="text-sm text-white/50">{item.d}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
 const ComparisonSection = () => (
-  <section className="px-6 py-32 max-w-7xl mx-auto border-t etp-border">
-    <div className="flex flex-col items-center mb-20 text-center">
-      <span className="mono-label text-orange-500 mb-4 tracking-[0.3em]">Comparative Analysis</span>
-      <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white">Why Transport Matters</h2>
+  <section className="px-6 py-40 max-w-7xl mx-auto border-t border-white/5">
+    <div className="flex flex-col items-center mb-24 text-center">
+      <h2 className="text-4xl md:text-6xl font-bold tracking-tighter text-white">Choose your synchronization.</h2>
     </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-0">
       {/* Traditional Flow */}
-      <motion.div 
-        initial={{ opacity: 0, x: -20 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true }}
-        className="p-10 rounded-3xl bg-white/5 border etp-border relative overflow-hidden group"
-      >
-        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-          <Calendar size={120} className="text-white" />
+      <div className="p-12 rounded-3xl lg:rounded-r-none border border-white/5 bg-black/40 relative overflow-hidden flex flex-col">
+        <div className="mb-12">
+          <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/20">Standard Workflow</span>
+          <h3 className="text-3xl font-bold text-white mt-4 tracking-tight">Static Calendaring</h3>
         </div>
-        <div className="flex items-center gap-2 mb-8">
-          <div className="w-2 h-2 bg-red-500 rounded-full" />
-          <span className="text-xs font-mono uppercase tracking-widest text-red-500 opacity-80">Legacy: Payload Import</span>
+        
+        <div className="space-y-12 flex-1">
+          <div className="relative pl-8 border-l border-white/5 space-y-8">
+            <div className="absolute -left-[1px] top-0 w-[2px] h-full bg-red-500/20" />
+            <div className="relative">
+              <div className="absolute -left-[9.5px] top-1 w-4 h-4 bg-[#0A0A0A] border border-white/10 flex items-center justify-center rounded-full text-[8px] text-white/30">1</div>
+              <p className="text-sm text-white font-medium">Export .ics snapshot</p>
+              <p className="text-xs text-white/40">The state is frozen in a dead file.</p>
+            </div>
+            <div className="relative">
+              <div className="absolute -left-[9.5px] top-1 w-4 h-4 bg-[#0A0A0A] border border-white/10 flex items-center justify-center rounded-full text-[8px] text-white/30">2</div>
+              <p className="text-sm text-white font-medium line-through decoration-red-500/50">Manual Link Update</p>
+              <p className="text-xs text-white/40">Meeting URL changes. Calendar invite stays stale.</p>
+            </div>
+            <div className="relative opacity-30">
+              <div className="absolute -left-[9.5px] top-1 w-4 h-4 bg-[#0A0A0A] border border-white/10 flex items-center justify-center rounded-full text-[8px] text-white/30">3</div>
+              <p className="text-sm text-white font-medium italic">Broken Join</p>
+              <p className="text-xs text-white/40">Users land in empty rooms or dead calls.</p>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-red-500/5 rounded border border-red-500/10 text-red-500/60 text-[10px] font-mono uppercase tracking-widest text-center">
+            Synchronicity Lost
+          </div>
         </div>
-        <h3 className="text-2xl font-bold mb-6 text-white">The Stale Sandbox</h3>
-        <ul className="space-y-6">
-          {[
-            { t: "Static Snapshot", d: "Events are trapped in .ics files at the moment of download." },
-            { t: "Manual Refresh", d: "Updates require rescheduling or re-importing new files." },
-            { t: "Duplicate Records", d: "Moving an event locally creates fragmented, conflicting states." },
-            { t: "Silent Failures", d: "Cancellations don't propagate to imported calendar files." }
-          ].map((item, i) => (
-            <li key={i} className="flex gap-4">
-              <div className="w-5 h-5 mt-1 rounded-full border border-red-500/30 flex items-center justify-center flex-shrink-0 text-red-500 font-mono text-[10px]">!</div>
-              <div>
-                <p className="font-bold text-sm text-white/90">{item.t}</p>
-                <p className="text-xs text-white/40 leading-relaxed">{item.d}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </motion.div>
+      </div>
 
-      {/* ETP Flow */}
-      <motion.div 
-        initial={{ opacity: 0, x: 20 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true }}
-        className="p-10 rounded-3xl bg-orange-500/5 border-2 border-orange-500/50 relative overflow-hidden group glow-orange"
-      >
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <Globe size={120} className="text-orange-500" />
+      {/* CMAMeet Flow */}
+      <div className="p-12 rounded-3xl lg:rounded-l-none border-y border-r border-white/10 bg-white/[0.02] shadow-[inset_0_0_80px_rgba(255,255,255,0.01)] relative overflow-hidden flex flex-col">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.03] blur-3xl" />
+        <div className="mb-12">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/60">CMAMeet + ETP Native</span>
+            <span className="px-2 py-0.5 rounded-full bg-white text-black text-[8px] font-bold uppercase tracking-tight">Active</span>
+          </div>
+          <h3 className="text-3xl font-bold text-white mt-4 tracking-tight">Synchronized Discovery</h3>
         </div>
-        <div className="flex items-center gap-2 mb-8">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-xs font-mono uppercase tracking-widest text-green-500 font-bold">ETP: State Transport</span>
+
+        <div className="space-y-12 flex-1">
+          <div className="relative pl-8 border-l border-white/20 space-y-8">
+            <motion.div 
+               animate={{ opacity: [1, 0.5, 1] }} 
+               transition={{ duration: 2, repeat: Infinity }}
+               className="absolute -left-[1px] top-0 w-[2px] h-full bg-white/40 shadow-[0_0_10px_white/20]" 
+            />
+            <div className="relative">
+              <div className="absolute -left-[9.5px] top-1 w-4 h-4 bg-white flex items-center justify-center rounded-full text-[8px] text-black font-bold">1</div>
+              <p className="text-sm text-white font-medium">Subscribe: evt_cmameet_38</p>
+              <p className="text-xs text-white/60">Authorization established via ETP client handshake.</p>
+            </div>
+            <div className="relative">
+              <div className="absolute -left-[9.5px] top-1 w-4 h-4 bg-white flex items-center justify-center rounded-full text-[8px] text-black font-bold">2</div>
+              <p className="text-sm text-white font-medium">Auto-Delta Propagation</p>
+              <p className="text-xs text-white/60">Link update pushed to all subscribers in &lt;100ms.</p>
+            </div>
+            <div className="relative">
+              <div className="absolute -left-[9.5px] top-1 w-4 h-4 bg-white flex items-center justify-center rounded-full text-[8px] text-black font-bold">3</div>
+              <p className="text-sm text-white font-medium">Authoritative Join</p>
+              <p className="text-xs text-white/60">Seamless handover to CMAMeet meeting engine.</p>
+            </div>
+          </div>
+
+          <div className="p-4 bg-white/5 rounded border border-white/10 text-white/80 text-[10px] font-mono uppercase tracking-widest text-center">
+            Authoritative State Maintained
+          </div>
         </div>
-        <h3 className="text-2xl font-bold mb-6 text-white">The Living Identity</h3>
-        <ul className="space-y-6">
-          {[
-            { t: "Immutable Identity (EID)", d: "Universal anchor (evt_) resolves across all devices and clients." },
-            { t: "Subscription Streams", d: "Calendars maintain a live interest in the event state." },
-            { t: "Atomic Propogation", d: "Authoritative mutations propagate to all nodes in milliseconds." },
-            { t: "Lifecycle Transparency", d: "Transitions (Cancelled, Updated) are signaled protocol-wide." }
-          ].map((item, i) => (
-            <li key={i} className="flex gap-4">
-              <div className="w-5 h-5 mt-1 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0 text-white font-mono text-[10px]">✓</div>
-              <div>
-                <p className="font-bold text-sm text-orange-400">{item.t}</p>
-                <p className="text-xs text-white/50 leading-relaxed">{item.d}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </motion.div>
+      </div>
     </div>
   </section>
 );
@@ -284,20 +350,20 @@ const LiveMutationDemo = () => {
   };
 
   return (
-    <section id="demo" className="px-6 py-40 max-w-7xl mx-auto border-t etp-border bg-black/20">
+    <section id="demo" className="px-6 py-40 max-w-7xl mx-auto border-t border-white/5 bg-white/[0.01]">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
         <div className="lg:col-span-5 space-y-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Activity className="text-orange-500 animate-pulse" />
-              <h2 className="text-3xl font-bold tracking-tight text-white">Transport Binding Demo</h2>
+              <Activity className="text-white animate-pulse" />
+              <h2 className="text-3xl font-bold tracking-tight text-white">Protocol Engine</h2>
             </div>
             <div className={`text-[10px] font-mono font-bold tracking-widest ${getStatusColor()}`}>
               {syncState}
             </div>
           </div>
-          <p className="text-white/60 leading-relaxed text-lg">
-            ETP is <strong>transport-neutral</strong>. Select a binding below to observe how the protocol maintains synchronization consistency across different delivery layers.
+          <p className="text-white/40 leading-relaxed text-lg font-light">
+            Behind the CMAMeet UI is the <strong>ETP Synchronization Layer</strong>. This demo allows you to trigger authoritative mutations and observe real-time delta propagation across multiple transport bindings.
           </p>
 
           {/* Transport Selection */}
@@ -598,53 +664,53 @@ const LiveMutationDemo = () => {
 // --- Hero & Main App ---
 
 const Hero = () => (
-  <section className="px-6 py-32 flex flex-col items-center text-center max-w-5xl mx-auto overflow-hidden relative">
-    {/* Background Glows */}
-    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-600/5 rounded-full blur-[120px] -z-10" />
-    <div className="absolute -top-40 -left-40 w-80 h-80 bg-blue-600/5 rounded-full blur-[100px] -z-10" />
+  <section className="px-6 py-48 flex flex-col items-center text-center max-w-7xl mx-auto relative overflow-hidden">
+    {/* Subtle Minimalist Accents */}
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-32 bg-gradient-to-b from-white/20 to-transparent" />
+    <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-white/[0.02] rounded-full blur-[120px] -z-10" />
 
     <motion.div 
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.8 }}
-      className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-xs text-orange-500 font-bold mb-10 tracking-widest uppercase"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="inline-flex items-center gap-3 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-[10px] font-bold text-white uppercase tracking-[0.2em] mb-12 shadow-xl"
     >
-      <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-ping" />
-      ETP Protocol v0.1-Alpha
+      <Zap size={10} className="text-white fill-white" />
+      CMAMeet Reference Node v0.1
     </motion.div>
 
     <motion.h2 
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay: 0.1 }}
-      className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 leading-[0.95] text-white"
+      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+      className="text-7xl md:text-9xl font-bold tracking-tighter mb-10 leading-[0.85] text-white"
     >
-      Events are <span className="text-orange-500 italic">synchronous</span>,<br />not downloadable.
+      Calendars are dead. <br />
+      <span className="opacity-20 italic">Meetings are live.</span>
     </motion.h2>
 
     <motion.p 
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay: 0.2 }}
-      className="text-xl md:text-2xl text-white/50 mb-12 max-w-3xl font-light leading-relaxed"
+      transition={{ duration: 0.8, delay: 0.1 }}
+      className="text-xl md:text-3xl text-white/40 mb-16 max-w-3xl font-light leading-snug tracking-tight"
     >
-      Stop sending files. Start transporting state. ETP is the internet-native plumbing for event synchronization across apps, agents, and OS.
+      CMAMeet uses the <strong>Event Transport Protocol</strong> to eliminate meeting drift once and for all. Authoritative, real-time event state for the modern enterprise.
     </motion.p>
 
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay: 0.3 }}
+      transition={{ duration: 0.8, delay: 0.2 }}
       className="flex flex-wrap items-center justify-center gap-6"
     >
       <button 
         onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}
-        className="px-10 py-5 bg-white text-black font-bold rounded-xl flex items-center gap-3 hover:bg-orange-500 hover:text-white transition-all transform hover:-translate-y-1 hover:shadow-2xl shadow-orange-500/20 cursor-pointer text-lg"
+        className="px-10 py-5 bg-white text-black font-bold rounded-full flex items-center gap-3 hover:bg-white/90 transition-all hover:scale-105 active:scale-95 cursor-pointer text-lg shadow-[0_20px_50px_rgba(255,255,255,0.1)]"
       >
-        Experience the Demo <ArrowRight size={20} />
+        View Protocol Demo <ArrowRight size={20} />
       </button>
-      <button className="px-10 py-5 bg-white/5 border border-white/10 rounded-xl font-bold hover:bg-white/10 transition-colors text-lg text-white">
-        Spec Definition
+      <button className="px-10 py-5 bg-black/40 border border-white/10 rounded-full font-bold hover:bg-white/5 transition-all text-lg text-white">
+        Read Specification
       </button>
     </motion.div>
   </section>
@@ -955,90 +1021,26 @@ Content-Type: application/etp+json
 // --- Main App ---
 
 export default function App() {
-  const [createdResult, setCreatedResult] = useState<any>(null);
-  const [viewId, setViewId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
-    if (id) setViewId(id);
-  }, []);
-
   return (
-    <div className="min-h-screen font-sans selection:bg-orange-500 selection:text-white bg-[#0C0C0C]">
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-white selection:text-black font-sans pt-16">
       <Header />
-      
-      <main>
-        {viewId ? (
-          <section className="py-20 px-6">
-            <div className="max-w-7xl mx-auto flex flex-col items-center">
-              <button 
-                onClick={() => { window.history.pushState({}, '', '/'); setViewId(null); }}
-                className="mb-12 flex items-center gap-2 text-xs opacity-50 hover:opacity-100 transition-opacity text-white cursor-pointer"
-              >
-                <ArrowRight size={14} className="rotate-180" /> Back to Protocol Overview
-              </button>
-              <EventDetails id={viewId} />
-            </div>
-          </section>
-        ) : (
-          <div className="space-y-0">
-            <Hero />
-            <ComparisonSection />
-            <LiveMutationDemo />
-            
-            <section className="px-6 py-32 border-t etp-border bg-black/40">
-              <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20 items-start">
-                  <div className="space-y-6">
-                    <h3 className="text-3xl font-bold tracking-tight text-white underline decoration-orange-500/30">Developer Integration</h3>
-                    <p className="text-white/50 leading-relaxed text-sm">
-                      Ready to build on the transport layer? Register your first event identity manually to see the underlying architecture in action.
-                    </p>
-                    <ul className="space-y-4">
-                      {[
-                        "Resolvable EID Handshakes",
-                        "Universal Router Gateway",
-                        "Native Protocol Resolution"
-                      ].map(item => (
-                        <li key={item} className="flex items-center gap-3 text-xs font-mono text-white/30 italic italic italic">
-                          <Check size={12} className="text-orange-500" />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <AnimatePresence mode="wait">
-                    {createdResult ? (
-                      <SuccessPanel 
-                        key="success" 
-                        result={createdResult} 
-                        onReset={() => setCreatedResult(null)} 
-                      />
-                    ) : (
-                      <motion.div
-                        key="form"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                      >
-                        <EventGenerator onCreated={setCreatedResult} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-              </div>
-            </section>
-            
-            <SpecSection />
-          </div>
-        )}
-      </main>
-
-      <footer className="px-6 py-20 border-t etp-border text-center">
-        <div className="flex items-center justify-center gap-3 mb-6">
-          <div className="w-6 h-6 bg-white/5 border border-white/10 rounded flex items-center justify-center font-bold text-[10px] text-white">E</div>
-          <span className="text-[10px] mono-label tracking-[0.2em] text-white">End of Protocol Stream</span>
-        </div>
-        <p className="text-[10px] opacity-30 uppercase tracking-[0.1em] text-white">© 2026 Event Transport Labs — Distributed Internet Infrastructure</p>
+      <Hero />
+      <ProblemSolutionSection />
+      <ComparisonSection />
+      <LiveMutationDemo />
+      <section className="px-6 py-40 border-t border-white/5 flex flex-col items-center">
+         <span className="text-[10px] font-mono opacity-20 uppercase tracking-[0.4em] mb-8">Authoritative Future</span>
+         <h2 className="text-3xl font-bold tracking-tight text-center max-w-2xl opacity-80 leading-snug">
+           CMAMeet is just the beginning. ETP is the open standard for synchronizing the world's shared reality.
+         </h2>
+         <div className="mt-16 flex items-center gap-12 grayscale opacity-30">
+            <div className="font-bold text-xl tracking-tighter">LINEAR</div>
+            <div className="font-mono text-xl font-bold tracking-widest">VERCEL</div>
+            <div className="font-bold text-2xl tracking-tight text-white">Stripe</div>
+         </div>
+      </section>
+      <footer className="px-6 py-20 border-t border-white/5 text-center text-white/30 text-xs font-mono">
+        <p>&copy; 2026 ETP FOUNDATION // CMAMEET_REFERENCE_NODE</p>
       </footer>
     </div>
   );
