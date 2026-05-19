@@ -4,7 +4,6 @@ import path from 'path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/Event-Transport-Protocol/',
 
   plugins: [react(), tailwindcss()],
 
