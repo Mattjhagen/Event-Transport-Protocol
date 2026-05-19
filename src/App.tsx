@@ -27,15 +27,15 @@ import { ETPClient } from "../sdk/etp-client";
 // --- Components ---
 
 const Header = () => (
-  <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between">
-    <div className="flex items-center gap-3">
+  <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl flex items-center justify-between overflow-x-auto no-scrollbar">
+    <div className="flex items-center gap-3 px-6 py-4 flex-shrink-0">
       <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center font-bold text-black shadow-[0_0_20px_rgba(255,255,255,0.1)]">CM</div>
       <div>
         <h1 className="text-sm font-bold tracking-tight text-white">CMAMeet</h1>
         <p className="text-[10px] mono-label leading-none opacity-40 uppercase tracking-widest">ETP Reference implementation</p>
       </div>
     </div>
-    <nav className="flex items-center gap-8">
+    <nav className="flex items-center gap-8 px-6 py-4 flex-shrink-0">
       <a href="#why" className="text-xs font-medium hover:text-white transition-colors text-white/50">Rationale</a>
       <a href="#ref-impl" className="text-xs font-medium hover:text-white transition-colors text-white/50">Implementation</a>
       <a href="#demo" className="text-xs font-medium hover:text-white transition-colors text-white/50">Engine</a>
@@ -51,6 +51,51 @@ const Header = () => (
     </nav>
   </header>
 );
+
+const CookieConsent = () => {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const consent = localStorage.getItem("etp_cookie_consent");
+    if (!consent) {
+      setShow(true);
+    }
+  }, []);
+
+  const accept = () => {
+    localStorage.setItem("etp_cookie_consent", "true");
+    setShow(false);
+  };
+
+  if (!show) return null;
+
+  return (
+    <motion.div 
+      initial={{ y: 100, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className="fixed bottom-6 left-6 right-6 z-[60] p-6 bg-white rounded-2xl shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 max-w-4xl mx-auto"
+    >
+      <div className="space-y-1">
+        <h4 className="text-black font-bold tracking-tight">Privacy & Protocol State</h4>
+        <p className="text-black/60 text-sm">We use cookies to maintain your session state and improve protocol telemetry. No personal data is harvested.</p>
+      </div>
+      <div className="flex gap-3 flex-shrink-0 w-full md:w-auto">
+        <button 
+          onClick={() => setShow(false)}
+          className="flex-1 md:flex-none px-6 py-3 text-xs font-bold text-black/40 uppercase hover:text-black transition-colors"
+        >
+          Decline
+        </button>
+        <button 
+          onClick={accept}
+          className="flex-1 md:flex-none px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-black/90 transition-colors"
+        >
+          Accept Consent
+        </button>
+      </div>
+    </motion.div>
+  );
+};
 
 const CMAMeetReferenceSection = () => (
   <section id="ref-impl" className="px-6 py-40 max-w-7xl mx-auto border-t border-white/5">
@@ -1116,6 +1161,7 @@ export default function App() {
       <footer className="px-6 py-20 border-t border-white/5 text-center text-white/30 text-xs font-mono">
         <p>&copy; 2026 ETP FOUNDATION // CMAMEET_REFERENCE_NODE</p>
       </footer>
+      <CookieConsent />
     </div>
   );
 }
