@@ -41,7 +41,7 @@ const Header = () => (
       <a href="#demo" className="text-xs font-medium hover:text-white transition-colors text-white/50">Engine</a>
       <div className="h-4 w-[1px] bg-white/10" />
       <a 
-        href="https://github.com/Mattjhagen/CMAMeet" 
+        href="https://github.com/Mattjhagen/Event-Transport-Protocol" 
         target="_blank" 
         rel="noopener noreferrer"
         className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white text-[10px] font-bold uppercase tracking-tight hover:bg-white/10 transition-colors flex items-center gap-2"
