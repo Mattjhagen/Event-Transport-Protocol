@@ -1,6 +1,6 @@
 {
-  "name": "CMAMeet: Powered by ETP",
-  "description": "The primary reference implementation for Event Transport Protocol (ETP). CMAMeet demonstrates live synchronized meeting-state to solve stale meeting invites and common calendar drift.",
+  "name": "Event Transport Protocol (ETP)",
+  "description": "An open internet protocol for authoritative, real-time event-state synchronization. Featuring CMAMeet as the primary reference implementation.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

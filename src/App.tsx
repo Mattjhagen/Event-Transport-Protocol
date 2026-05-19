@@ -26,27 +26,50 @@ import { ETPClient } from "../sdk/etp-client";
 
 // --- Components ---
 
+const ETPLogo = ({ size = 32, className = "" }: { size?: number, className?: string }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 32 32" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg" 
+    className={className}
+  >
+    <rect x="6" y="8" width="20" height="3" rx="1.5" fill="currentColor" />
+    <rect x="6" y="14" width="14" height="3" rx="1.5" fill="currentColor" opacity="0.6" />
+    <rect x="6" y="20" width="20" height="3" rx="1.5" fill="currentColor" />
+  </svg>
+);
+
 const Header = () => (
   <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl flex items-center justify-between overflow-x-auto no-scrollbar">
-    <div className="flex items-center gap-3 px-6 py-4 flex-shrink-0">
-      <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center font-bold text-black shadow-[0_0_20px_rgba(255,255,255,0.1)]">CM</div>
-      <div>
-        <h1 className="text-sm font-bold tracking-tight text-white">CMAMeet</h1>
-        <p className="text-[10px] mono-label leading-none opacity-40 uppercase tracking-widest">ETP Reference implementation</p>
+    <div className="flex items-center gap-4 px-6 py-4 flex-shrink-0">
+      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-black shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+        <ETPLogo size={24} />
+      </div>
+      <div className="flex flex-col">
+        <h1 className="text-sm font-bold tracking-tight text-white uppercase tracking-wider">Event Transport Protocol</h1>
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] mono-label leading-none opacity-40 uppercase tracking-widest">Live Event State Protocol</p>
+          <span className="w-1 h-1 rounded-full bg-white/20" />
+          <p className="text-[9px] font-medium opacity-20 uppercase tracking-tighter">Ref: CMAMeet</p>
+        </div>
       </div>
     </div>
     <nav className="flex items-center gap-8 px-6 py-4 flex-shrink-0">
-      <a href="#why" className="text-xs font-medium hover:text-white transition-colors text-white/50">Rationale</a>
-      <a href="#ref-impl" className="text-xs font-medium hover:text-white transition-colors text-white/50">Implementation</a>
-      <a href="#demo" className="text-xs font-medium hover:text-white transition-colors text-white/50">Engine</a>
+      <a href="#why" className="text-xs font-medium hover:text-white transition-colors text-white/50 underline-offset-4 hover:underline">Rationale</a>
+      <a href="#demo" className="text-xs font-medium hover:text-white transition-colors text-white/50 underline-offset-4 hover:underline">Engine</a>
+      <a href="#ref-impl" className="text-xs font-medium hover:text-white transition-colors text-white/50 flex items-center gap-1.5 px-3 py-1 bg-white/5 rounded-full border border-white/5 hover:border-white/20 transition-all group">
+        <Activity size={10} className="group-hover:animate-pulse" /> CMAMeet
+      </a>
       <div className="h-4 w-[1px] bg-white/10" />
       <a 
         href="https://github.com/Mattjhagen/Event-Transport-Protocol" 
         target="_blank" 
         rel="noopener noreferrer"
-        className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white text-[10px] font-bold uppercase tracking-tight hover:bg-white/10 transition-colors flex items-center gap-2"
+        className="px-4 py-1.5 rounded-full bg-white text-black text-[10px] font-bold uppercase tracking-widest hover:bg-white/90 transition-colors flex items-center gap-2"
       >
-        <Code size={12} /> Source
+        <Code size={12} /> Protocol Source
       </a>
     </nav>
   </header>
@@ -792,10 +815,10 @@ const Hero = () => (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="inline-flex items-center gap-3 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-[10px] font-bold text-white uppercase tracking-[0.2em] mb-12 shadow-xl"
+      className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-[10px] font-bold text-white uppercase tracking-[0.2em] mb-12 shadow-xl"
     >
-      <Zap size={10} className="text-white fill-white" />
-      Reference Implementation v0.1
+      <ETPLogo size={12} className="text-white" />
+      The Event Transport Protocol v0.1
     </motion.div>
 
     <motion.h2 
@@ -814,7 +837,7 @@ const Hero = () => (
       transition={{ duration: 0.8, delay: 0.1 }}
       className="text-xl md:text-3xl text-white/40 mb-16 max-w-3xl font-light leading-snug tracking-tight"
     >
-      Events should behave like live state, not static attachments. ETP is an open protocol for authoritative event-state synchronization across the internet.
+      Events should behave like live state, not static attachments. ETP is the infrastructure layer for authoritative event-state synchronization across the living web.
     </motion.p>
 
     <motion.div 
