@@ -25,9 +25,16 @@ ETP maintains a persistent, authoritative synchronization heartbeat between the 
 
 ## Repository Structure
 - `/spec`: formal protocol specification (v0.1).
+- `/worker`: reference ETP Edge Gateway (Cloudflare Worker).
 - `/sdk`: reference TypeScript client for ETP integration.
 - `/src`: reference ETP Node & Router implementation.
 - `/docs`: developer onboarding and integration guides.
+
+## Edge Gateway (Cloudflare Worker)
+The ETP Edge Gateway handles identity resolution and transport negotiation at the edge.
+- **EID Resolution**: Resolves aliases to canonical event identities.
+- **Transport Negotiation**: Dynamically switches between ETP-native JSON, legacy ICS snapshots, and application redirects based on `Accept` headers.
+- **Efficiency**: Globally distributed for sub-10ms capability negotiation.
 
 ## Quickstart
 ```bash
