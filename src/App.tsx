@@ -36,9 +36,9 @@ const Header = () => (
       </div>
     </div>
     <nav className="flex items-center gap-8">
-      <a href="#why" className="text-xs font-medium hover:text-white transition-colors text-white/50">The Conflict</a>
+      <a href="#why" className="text-xs font-medium hover:text-white transition-colors text-white/50">Rationale</a>
       <a href="#ref-impl" className="text-xs font-medium hover:text-white transition-colors text-white/50">Implementation</a>
-      <a href="#demo" className="text-xs font-medium hover:text-white transition-colors text-white/50">Technical Engine</a>
+      <a href="#demo" className="text-xs font-medium hover:text-white transition-colors text-white/50">Engine</a>
       <div className="h-4 w-[1px] bg-white/10" />
       <a 
         href="https://github.com/Mattjhagen/CMAMeet" 
@@ -125,27 +125,27 @@ const ProblemSolutionSection = () => (
   <section id="why" className="px-6 py-40 max-w-7xl mx-auto">
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
       <div className="space-y-8">
-        <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-white/40">The Problem Space</span>
+        <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-white/40">The Motivation</span>
         <h2 className="text-5xl md:text-7xl font-bold tracking-tighter text-white leading-[0.9]">
-          Meeting drift is <br /><span className="opacity-30">silent but costly.</span>
+          Calendars designed <br /><span className="opacity-30">for a static era.</span>
         </h2>
         <div className="space-y-6 text-white/60 text-lg leading-relaxed max-w-xl font-light">
           <p>
-            Meetings are dynamic. People are late. Links change. Emergencies happen. Yet, the systems we use to schedule them treat events like static files from 1998.
+            Traditional invites are <strong>snapshots</strong>. Once an invitation is sent, the connection between the organizer and the participant is severed.
           </p>
           <p>
-            Traditional invites are <strong>snapshots</strong>. Once they land in your calendar, the cord is cut. When the meeting evolves, your calendar remains fixed—leading to broken links, missed joins, and scheduling chaos.
+            When a meeting link changes or a start time shifts, your calendar stays stale. This results in "meeting drift"—a persistent coordination failure that ETP solves at the transport layer.
           </p>
         </div>
         
         <div className="pt-8 grid grid-cols-2 gap-8">
           <div className="space-y-2">
             <p className="text-3xl font-bold text-white tracking-tighter">72%</p>
-            <p className="text-xs text-white/40 uppercase tracking-widest font-mono">Stale Meeting Links</p>
+            <p className="text-xs text-white/40 uppercase tracking-widest font-mono">Invite Mismatch</p>
           </div>
           <div className="space-y-2">
-            <p className="text-3xl font-bold text-white tracking-tighter">15m</p>
-            <p className="text-xs text-white/40 uppercase tracking-widest font-mono">Avg Sync Latency</p>
+            <p className="text-3xl font-bold text-white tracking-tighter">&lt;1s</p>
+            <p className="text-xs text-white/40 uppercase tracking-widest font-mono">Sync Target</p>
           </div>
         </div>
       </div>
@@ -184,15 +184,15 @@ const ProblemSolutionSection = () => (
 const ComparisonSection = () => (
   <section className="px-6 py-40 max-w-7xl mx-auto border-t border-white/5">
     <div className="flex flex-col items-center mb-24 text-center">
-      <h2 className="text-4xl md:text-6xl font-bold tracking-tighter text-white">Choose your synchronization.</h2>
+      <h2 className="text-4xl md:text-6xl font-bold tracking-tighter text-white">How deltas beat snapshots.</h2>
     </div>
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-0">
       {/* Traditional Flow */}
       <div className="p-12 rounded-3xl lg:rounded-r-none border border-white/5 bg-black/40 relative overflow-hidden flex flex-col">
         <div className="mb-12">
-          <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/20">Standard Workflow</span>
-          <h3 className="text-3xl font-bold text-white mt-4 tracking-tight">Static Calendaring</h3>
+          <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/20">Snapshot Model</span>
+          <h3 className="text-3xl font-bold text-white mt-4 tracking-tight">Isolated invites</h3>
         </div>
         
         <div className="space-y-12 flex-1">
@@ -226,10 +226,10 @@ const ComparisonSection = () => (
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.03] blur-3xl" />
         <div className="mb-12">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/60">CMAMeet + ETP Native</span>
-            <span className="px-2 py-0.5 rounded-full bg-white text-black text-[8px] font-bold uppercase tracking-tight">Active</span>
+            <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/60">ETP Stream Model</span>
+            <span className="px-2 py-0.5 rounded-full bg-white text-black text-[8px] font-bold uppercase tracking-tight">Synchronized</span>
           </div>
-          <h3 className="text-3xl font-bold text-white mt-4 tracking-tight">Synchronized Discovery</h3>
+          <h3 className="text-3xl font-bold text-white mt-4 tracking-tight">Live state propagation</h3>
         </div>
 
         <div className="space-y-12 flex-1">
@@ -750,7 +750,7 @@ const Hero = () => (
       className="inline-flex items-center gap-3 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-[10px] font-bold text-white uppercase tracking-[0.2em] mb-12 shadow-xl"
     >
       <Zap size={10} className="text-white fill-white" />
-      CMAMeet Reference Node v0.1
+      Reference Implementation v0.1
     </motion.div>
 
     <motion.h2 
@@ -759,8 +759,8 @@ const Hero = () => (
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
       className="text-7xl md:text-9xl font-bold tracking-tighter mb-10 leading-[0.85] text-white"
     >
-      Calendars are dead. <br />
-      <span className="opacity-20 italic">Meetings are live.</span>
+      Meetings change. <br />
+      <span className="opacity-20 italic">Static invites don't.</span>
     </motion.h2>
 
     <motion.p 
@@ -769,7 +769,7 @@ const Hero = () => (
       transition={{ duration: 0.8, delay: 0.1 }}
       className="text-xl md:text-3xl text-white/40 mb-16 max-w-3xl font-light leading-snug tracking-tight"
     >
-      Authoritative, real-time event state for the modern enterprise. Powered by <a href="https://github.com/Mattjhagen/CMAMeet" target="_blank" rel="noopener noreferrer" className="text-white border-b border-white/20 hover:border-white transition-colors">CMAMeet</a> and the Event Transport Protocol.
+      Events should behave like live state, not static attachments. ETP is an open protocol for authoritative event-state synchronization across the internet.
     </motion.p>
 
     <motion.div 
@@ -782,10 +782,13 @@ const Hero = () => (
         onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}
         className="px-10 py-5 bg-white text-black font-bold rounded-full flex items-center gap-3 hover:bg-white/90 transition-all hover:scale-105 active:scale-95 cursor-pointer text-lg shadow-[0_20px_50px_rgba(255,255,255,0.1)]"
       >
-        View Protocol Demo <ArrowRight size={20} />
+        Explore the Protocol <ArrowRight size={20} />
       </button>
-      <button className="px-10 py-5 bg-black/40 border border-white/10 rounded-full font-bold hover:bg-white/5 transition-all text-lg text-white">
-        Read Specification
+      <button 
+        onClick={() => document.getElementById('ref-impl')?.scrollIntoView({ behavior: 'smooth' })}
+        className="px-10 py-5 bg-black/40 border border-white/10 rounded-full font-bold hover:bg-white/5 transition-all text-lg text-white"
+      >
+        View Reference App
       </button>
     </motion.div>
   </section>
@@ -1105,15 +1108,10 @@ export default function App() {
       <ComparisonSection />
       <LiveMutationDemo />
       <section className="px-6 py-40 border-t border-white/5 flex flex-col items-center">
-         <span className="text-[10px] font-mono opacity-20 uppercase tracking-[0.4em] mb-8">Authoritative Future</span>
+         <span className="text-[10px] font-mono opacity-20 uppercase tracking-[0.4em] mb-8">Standardization</span>
          <h2 className="text-3xl font-bold tracking-tight text-center max-w-2xl opacity-80 leading-snug">
-           CMAMeet is just the beginning. ETP is the open standard for synchronizing the world's shared reality.
+           ETP is an open, community-driven project dedicated to building synchronization plumbing for the modern web.
          </h2>
-         <div className="mt-16 flex items-center gap-12 grayscale opacity-30">
-            <div className="font-bold text-xl tracking-tighter">LINEAR</div>
-            <div className="font-mono text-xl font-bold tracking-widest">VERCEL</div>
-            <div className="font-bold text-2xl tracking-tight text-white">Stripe</div>
-         </div>
       </section>
       <footer className="px-6 py-20 border-t border-white/5 text-center text-white/30 text-xs font-mono">
         <p>&copy; 2026 ETP FOUNDATION // CMAMEET_REFERENCE_NODE</p>
