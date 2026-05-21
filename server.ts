@@ -95,17 +95,27 @@ function signPayload(payload: any): string {
 }
 
 function encodeEventToId(body: any): string {
+  const startUnix = body.start ? Math.floor(new Date(body.start).getTime() / 1000) : 0;
+  const endUnix = body.end ? Math.floor(new Date(body.end).getTime() / 1000) : 0;
+
+  const rec = body.ext?.recurrence || body.recurrence || "none";
+  let rCode = "n";
+  if (rec === "daily") rCode = "d";
+  else if (rec === "weekly") rCode = "w";
+  else if (rec === "monthly") rCode = "m";
+  else if (rec === "yearly") rCode = "y";
+
   const compact = {
-    t: body.title,
-    d: body.description,
-    s: body.start,
-    e: body.end,
-    l: body.location?.name,
-    g: body.lifecycle || "scheduled",
-    ts: body.timezone || "UTC",
-    a: body.ext?.recurrence || body.recurrence,
-    at: body.ext?.attendees?.map((a: any) => ({ m: a.email, s: a.status })) || []
+    t: body.title || "Untitled",
+    d: body.description ? body.description.substring(0, 100) : "",
+    s: startUnix,
+    e: endUnix,
+    l: body.location?.name || "",
+    g: (body.lifecycle || "scheduled").substring(0, 1),
+    r: rCode,
+    at: body.ext?.attendees?.map((a: any) => a.email) || []
   };
+
   const str = JSON.stringify(compact);
   const base64 = Buffer.from(str, "utf-8").toString("base64")
     .replace(/\+/g, "-")
@@ -123,7 +133,21 @@ function decodeEventFromId(eid: string, baseUrl: string): ETPEvent | null {
     const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
     const jsonStr = Buffer.from(padded, "base64").toString("utf-8");
     const compact = JSON.parse(jsonStr);
-    
+
+    const startISO = new Date((compact.s || 0) * 1000).toISOString();
+    const endISO = new Date((compact.e || 0) * 1000).toISOString();
+
+    let lifecycle = "scheduled";
+    if (compact.g === "d") lifecycle = "draft";
+    else if (compact.g === "u") lifecycle = "updated";
+    else if (compact.g === "c") lifecycle = "cancelled";
+
+    let recurrence = "none";
+    if (compact.r === "d") recurrence = "daily";
+    else if (compact.r === "w") recurrence = "weekly";
+    else if (compact.r === "m") recurrence = "monthly";
+    else if (compact.r === "y") recurrence = "yearly";
+
     const now = new Date().toISOString();
     return {
       eid,
@@ -131,13 +155,13 @@ function decodeEventFromId(eid: string, baseUrl: string): ETPEvent | null {
       v: 1,
       created_at: now,
       updated_at: now,
-      lifecycle: compact.g || "scheduled",
+      lifecycle: lifecycle as any,
       proto: "0.1",
       title: compact.t || "Untitled Event",
       description: compact.d || "",
-      start: compact.s,
-      end: compact.e,
-      timezone: compact.ts || "UTC",
+      start: startISO,
+      end: endISO,
+      timezone: "UTC",
       location: compact.l ? { name: compact.l } : undefined,
       sync: {
         strategy: "stream",
@@ -149,8 +173,8 @@ function decodeEventFromId(eid: string, baseUrl: string): ETPEvent | null {
         method: "ed25519"
       },
       ext: {
-        recurrence: compact.a,
-        attendees: compact.at ? compact.at.map((at: any) => ({ email: at.m, status: at.s })) : []
+        recurrence,
+        attendees: compact.at ? compact.at.map((email: string) => ({ email, status: "pending" })) : []
       }
     };
   } catch (err) {
@@ -168,8 +192,9 @@ function findEvent(id: string, baseUrl: string): ETPEvent | undefined {
   if (event) return event;
 
   // Try decoding as a stateless self-contained ID
-  if (id.startsWith("evt_c_")) {
-    const decoded = decodeEventFromId(id, baseUrl);
+  if (id.startsWith("evt_c_") || id.startsWith("api_e_evt_c_") || id.includes("evt_c_")) {
+    const cleanId = id.includes("evt_c_") ? "evt_c_" + id.split("evt_c_")[1] : id;
+    const decoded = decodeEventFromId(cleanId, baseUrl);
     if (decoded) return decoded;
   }
   
@@ -517,7 +542,7 @@ app.get("/api/e/:id", (c) => {
  * --- UNIVERSAL ROUTER ---
  */
 
-app.get("/e/:id", (c) => {
+const handleUniversal = (c: any) => {
   const id = c.req.param("id");
   const reqUrl = new URL(c.req.url);
   const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
@@ -543,13 +568,16 @@ app.get("/e/:id", (c) => {
   // Native Deep Linking or Redirects
   // Always append EID to query to ensure UI knows canonical state
   return c.redirect(`/?id=${event.eid}`);
-});
+};
+
+app.get("/e/:id", handleUniversal);
+app.get("/api/e/:id/redirect", handleUniversal);
 
 /**
  * --- ICS COMPATIBILITY LAYER ---
  */
 
-app.get("/e/:id.ics", (c) => {
+const handleICS = (c: any) => {
   const id = c.req.param("id");
   const reqUrl = new URL(c.req.url);
   const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
@@ -563,7 +591,10 @@ app.get("/e/:id.ics", (c) => {
     "Content-Type": "text/calendar",
     "Content-Disposition": `attachment; filename="${id}.ics"`
   });
-});
+};
+
+app.get("/e/:id.ics", handleICS);
+app.get("/api/e/:id.ics", handleICS);
 
 /**
  * --- DEV SERVER / STATIC ASSETS ---
@@ -610,6 +641,8 @@ async function main() {
   setupWebSocket(server);
 }
 
-main();
+if (!process.env.VERCEL) {
+  main();
+}
 
 export default app;

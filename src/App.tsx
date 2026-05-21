@@ -1612,13 +1612,13 @@ const EventDetails = ({ id, onLeave }: { id: string, onLeave: () => void }) => {
                 <div className="flex gap-2">
                   <div className="flex-1 p-3 bg-black/60 rounded-xl border border-white/10 flex items-center justify-between gap-2 overflow-hidden">
                     <span id="calendar_feed_url" className="text-[11px] font-mono text-orange-500 truncate select-all">
-                      https://{window.location.host}/e/{event.alias || event.eid}.ics
+                      https://{window.location.host}/e/{event.eid}.ics
                     </span>
                   </div>
                   <button
                     id="copy-feed-btn"
                     onClick={() => {
-                      const feedUrl = `https://${window.location.host}/e/${event.alias || event.eid}.ics`;
+                      const feedUrl = `https://${window.location.host}/e/${event.eid}.ics`;
                       navigator.clipboard.writeText(feedUrl);
                       setCopied("feed");
                       setTimeout(() => setCopied(null), 2500);
