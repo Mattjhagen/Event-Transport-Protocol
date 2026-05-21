@@ -944,6 +944,7 @@ const getGoogleCalendarUrl = (event: ETPEvent) => {
 
 const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [attendeeEmail, setAttendeeEmail] = useState("");
   const [attendees, setAttendees] = useState<string[]>([
     "mattjhagen0@gmail.com",
@@ -974,6 +975,7 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
       const organizerToken = "org_" + Math.random().toString(36).substring(2, 12);
       
@@ -1000,6 +1002,11 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
       
       const data = await response.json();
       
+      if (!response.ok || data.error) {
+        setError(data.error || "Event object registration rejected by ETP network.");
+        return;
+      }
+      
       // Save organizer permission token in localStorage
       if (data?.event?.eid) {
         const storedTokens = JSON.parse(localStorage.getItem("etp_organizer_keys") || "{}");
@@ -1010,6 +1017,7 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
       onCreated(data);
     } catch (err) {
       console.error(err);
+      setError("Failed to connect to the ETP node. Please check server state.");
     } finally {
       setLoading(false);
     }
@@ -1023,6 +1031,13 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
         <Plus size={20} className="text-orange-500" />
         <span className="mono-label tracking-widest text-[11px] text-orange-500 font-bold">ETP Living Event Scheduler</span>
       </div>
+
+      {error && (
+        <div className="p-4 mb-8 border border-red-500/20 bg-red-500/5 rounded-xl text-xs font-mono text-red-400">
+          <span className="font-bold text-red-500 uppercase mr-1">[Identity Registration Rejected]</span>
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

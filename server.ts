@@ -195,7 +195,10 @@ app.post("/api/e", async (c) => {
   
   const eid = `evt_${ulid()}`;
   const now = new Date().toISOString();
-  const baseUrl = process.env.APP_URL || "http://localhost:3000";
+  
+  // Dynamically determine the base URL from the incoming request to ensure it's a valid absolute URL matching the environment
+  const reqUrl = new URL(c.req.url);
+  const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
   
   // Inject protocol defaults
   const eventPayload = {
@@ -215,16 +218,18 @@ app.post("/api/e", async (c) => {
       pubkey: NODE_IDENTITY.public_key,
       signature: ""
     },
-    sync: body.sync || { 
-      strategy: "stream", 
-      stream_url: `${baseUrl}/api/e/${eid}/stream`,
-      poll_interval: 3600 
+    sync: {
+      strategy: body.sync?.strategy || "stream",
+      stream_url: body.sync?.stream_url || `${baseUrl}/api/e/${eid}/stream`,
+      poll_interval: body.sync?.poll_interval || 3600,
+      delta_url: body.sync?.delta_url
     }
   };
 
   const validation = ETPEventSchema.safeParse(eventPayload);
   
   if (!validation.success) {
+    console.error("ETP Event creation schema validation failed:", JSON.stringify(validation.error.format(), null, 2));
     return c.json({ error: "Invalid EVT Object", details: validation.error }, 400);
   }
 
