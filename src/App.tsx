@@ -50,9 +50,19 @@ const ETPLogo = ({ size = 32, className = "" }: { size?: number, className?: str
 const Header = () => (
   <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl flex items-center justify-between overflow-x-auto no-scrollbar">
     <div className="flex items-center gap-4 px-6 py-4 flex-shrink-0">
-      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-black shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+      <a 
+        href="/" 
+        onClick={(e) => {
+          if (window.location.search.includes("id")) {
+            e.preventDefault();
+            window.history.pushState({}, "", "/");
+            window.dispatchEvent(new Event("popstate"));
+          }
+        }}
+        className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-black shadow-[0_0_30px_rgba(255,255,255,0.05)] hover:scale-105 transition-transform"
+      >
         <ETPLogo size={24} />
-      </div>
+      </a>
       <div className="flex flex-col">
         <h1 className="text-sm font-bold tracking-tight text-white uppercase tracking-wider">Event Transport Protocol</h1>
         <div className="flex items-center gap-2">
@@ -67,6 +77,19 @@ const Header = () => (
       <a href="#demo" className="text-xs font-medium hover:text-white transition-colors text-white/50 underline-offset-4 hover:underline">Engine</a>
       <a href="#ref-impl" className="text-xs font-medium hover:text-white transition-colors text-white/50 flex items-center gap-1.5 px-3 py-1 bg-white/5 rounded-full border border-white/5 hover:border-white/20 transition-all group">
         <Activity size={10} className="group-hover:animate-pulse" /> CMAMeet
+      </a>
+      <a 
+        href="#scheduler" 
+        onClick={(e) => {
+          if (window.location.search.includes("id")) {
+            e.preventDefault();
+            window.history.pushState({}, "", "/#scheduler");
+            window.dispatchEvent(new Event("popstate"));
+          }
+        }}
+        className="text-xs font-medium hover:text-orange-500 transition-colors text-orange-400 font-semibold underline-offset-4 hover:underline"
+      >
+        Living Scheduler
       </a>
       <div className="h-4 w-[1px] bg-white/10" />
       <a 
@@ -1834,20 +1857,81 @@ Content-Type: application/etp+json
 // --- Main App ---
 
 export default function App() {
+  const [activeEventId, setActiveEventId] = useState<string | null>(null);
+  const [createdResult, setCreatedResult] = useState<any | null>(null);
+
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const params = new URLSearchParams(window.location.search);
+      const idParam = params.get("id");
+      if (idParam) {
+        setActiveEventId(idParam);
+      } else {
+        setActiveEventId(null);
+      }
+    };
+
+    handleUrlChange();
+    window.addEventListener("popstate", handleUrlChange);
+    return () => window.removeEventListener("popstate", handleUrlChange);
+  }, []);
+
+  const handleLeaveEvent = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("id");
+    window.history.pushState({}, "", url.toString());
+    setActiveEventId(null);
+  };
+
+  const handleCreated = (result: any) => {
+    setCreatedResult(result);
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white selection:bg-white selection:text-black font-sans pt-16">
       <Header />
-      <Hero />
-      <ProblemSolutionSection />
-      <CMAMeetReferenceSection />
-      <ComparisonSection />
-      <LiveMutationDemo />
-      <section className="px-6 py-40 border-t border-white/5 flex flex-col items-center">
-         <span className="text-[10px] font-mono opacity-20 uppercase tracking-[0.4em] mb-8">Standardization</span>
-         <h2 className="text-3xl font-bold tracking-tight text-center max-w-2xl opacity-80 leading-snug">
-           ETP is an open, community-driven project dedicated to building synchronization plumbing for the modern web.
-         </h2>
-      </section>
+      
+      {activeEventId ? (
+        <div className="px-6 py-20">
+          <EventDetails id={activeEventId} onLeave={handleLeaveEvent} />
+        </div>
+      ) : (
+        <>
+          <Hero />
+          <ProblemSolutionSection />
+          <CMAMeetReferenceSection />
+          <ComparisonSection />
+          <LiveMutationDemo />
+          
+          <section id="scheduler" className="px-6 py-32 border-t border-white/5 bg-gradient-to-b from-black to-neutral-950">
+            <div className="max-w-4xl mx-auto space-y-12 text-center">
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-orange-500">Living Protocol Playground</span>
+                <h2 className="text-4xl md:text-5xl font-mono font-bold tracking-tight text-white mb-4">ETP Event Scheduler</h2>
+                <p className="text-white/60 text-base max-w-2xl mx-auto font-light leading-relaxed">
+                  Experience the ETP protocol handshake. Schedule a real living event on our distributed ledger, distribute recurring streams, invite participants, and watch statuses synchronize in real-time.
+                </p>
+              </div>
+              
+              <div className="max-w-3xl mx-auto text-left relative z-10">
+                {!createdResult ? (
+                  <EventGenerator onCreated={handleCreated} />
+                ) : (
+                  <SuccessPanel result={createdResult} onReset={() => setCreatedResult(null)} />
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="px-6 py-40 border-t border-white/5 flex flex-col items-center">
+             <span className="text-[10px] font-mono opacity-20 uppercase tracking-[0.4em] mb-8">Standardization</span>
+             <h2 className="text-3xl font-bold tracking-tight text-center max-w-2xl opacity-80 leading-snug">
+               ETP is an open, community-driven project dedicated to building synchronization plumbing for the modern web.
+             </h2>
+          </section>
+        </>
+      )}
+
       <footer className="px-6 py-20 border-t border-white/5 text-center text-white/30 text-xs font-mono">
         <p>&copy; 2026 ETP FOUNDATION // CMAMEET_REFERENCE_NODE</p>
       </footer>
