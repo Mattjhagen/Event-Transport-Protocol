@@ -1581,12 +1581,13 @@ const EventDetails = ({ id, onLeave }: { id: string, onLeave: () => void }) => {
                     <Calendar size={14} /> Add directly to Google Calendar
                   </a>
                 ) : (
-                  <button 
-                    onClick={handleAddCalendar}
-                    className="flex-1 py-4 bg-white text-black hover:bg-orange-500 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                  <a 
+                    href={`webcal://${window.location.host}/e/${event.eid}.ics`}
+                    target="_top"
+                    className="flex-1 py-4 bg-white text-black hover:bg-orange-500 hover:text-white font-semibold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer text-center"
                   >
-                    <Calendar size={14} /> One-Press Add to native Calendar (Deep-Link)
-                  </button>
+                    <Calendar size={14} className="inline-block" /> One-Press Add to native Calendar (Deep-Link)
+                  </a>
                 )}
 
                 {/* Secondary Cloud Fallback / Chromebook Option */}
@@ -1601,6 +1602,38 @@ const EventDetails = ({ id, onLeave }: { id: string, onLeave: () => void }) => {
                   </a>
                 )}
               </div>
+
+              <div className="pt-4 border-t border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-mono uppercase tracking-widest text-[#999999] font-bold">Subscription Feed URL (Copy & Paste Method)</span>
+                  <span className="text-[8px] font-mono text-white/40 uppercase">Manual Sync Fallback</span>
+                </div>
+                
+                <div className="flex gap-2">
+                  <div className="flex-1 p-3 bg-black/60 rounded-xl border border-white/10 flex items-center justify-between gap-2 overflow-hidden">
+                    <span id="calendar_feed_url" className="text-[11px] font-mono text-orange-500 truncate select-all">
+                      https://{window.location.host}/e/{event.alias || event.eid}.ics
+                    </span>
+                  </div>
+                  <button
+                    id="copy-feed-btn"
+                    onClick={() => {
+                      const feedUrl = `https://${window.location.host}/e/${event.alias || event.eid}.ics`;
+                      navigator.clipboard.writeText(feedUrl);
+                      setCopied("feed");
+                      setTimeout(() => setCopied(null), 2500);
+                    }}
+                    className="px-4 py-3 bg-white/5 hover:bg-orange-500 hover:text-white rounded-xl border border-white/10 text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    {copied === "feed" ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                
+                <p className="text-[10px] text-white/30 font-light leading-relaxed">
+                  💡 If the system security blocker prevents one-press subscription from inside the browser preview, click <strong className="text-white/60">Copy</strong> above, open your system Calendar, click <strong className="text-white/60">Add Subscription Calendar</strong>, and paste this URL directly! It will sync all future changes automatically.
+                </p>
+              </div>
+
               <p className="text-[10px] text-white/40 font-mono tracking-normal leading-relaxed">
                 * Note: Subscribing via deep link creates an authoritative synchronization channel. Any adjustments the host makes downstream (such as postponing or shifting time) recalculate dynamically on your native machine or cloud inbox without manual re-imports!
               </p>
