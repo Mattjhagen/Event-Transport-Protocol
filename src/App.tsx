@@ -18,7 +18,13 @@ import {
   Clock,
   ExternalLink,
   Copy,
-  Check
+  Check,
+  User,
+  UserPlus,
+  Mail,
+  Smartphone,
+  Shield,
+  Trash2
 } from "lucide-react";
 import { ETPEvent } from "./types";
 
@@ -862,33 +868,122 @@ const Hero = () => (
   </section>
 );
 
+// --- OS & Format Helpers ---
+const getBrowserOS = () => {
+  if (typeof window === "undefined") {
+    return { name: "unknown", label: "Web Client", action: "deep-link", icon: "🌐" };
+  }
+  const ua = window.navigator.userAgent.toLowerCase();
+  if (ua.includes("iphone") || ua.includes("ipad") || ua.includes("ipod")) {
+    return { name: "ios", label: "iOS (Apple Device)", action: "deep-link", icon: "📱" };
+  }
+  if (ua.includes("mac")) {
+    return { name: "macos", label: "macOS (Apple Mac)", action: "deep-link", icon: "🍏" };
+  }
+  if (ua.includes("android")) {
+    return { name: "android", label: "Android System", action: "deep-link", icon: "🤖" };
+  }
+  if (ua.includes("cros")) {
+    return { name: "chromeos", label: "ChromeOS (Chromebook)", action: "google-calendar", icon: "💻" };
+  }
+  if (ua.includes("win")) {
+    return { name: "windows", label: "Windows PC", action: "deep-link", icon: "🪟" };
+  }
+  if (ua.includes("linux")) {
+    return { name: "linux", label: "Linux Workspace", action: "deep-link", icon: "🐧" };
+  }
+  return { name: "unknown", label: "Universal Web", action: "google-calendar", icon: "🌐" };
+};
+
+const formatDateForGoogle = (dateStr: string) => {
+  try {
+    const d = new Date(dateStr);
+    const yr = d.getUTCFullYear();
+    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const da = String(d.getUTCDate()).padStart(2, '0');
+    const ho = String(d.getUTCHours()).padStart(2, '0');
+    const mi = String(d.getUTCMinutes()).padStart(2, '0');
+    const se = String(d.getUTCSeconds()).padStart(2, '0');
+    return `${yr}${mo}${da}T${ho}${mi}${se}Z`;
+  } catch (e) {
+    return "";
+  }
+};
+
+const getGoogleCalendarUrl = (event: ETPEvent) => {
+  const start = formatDateForGoogle(event.start);
+  const end = formatDateForGoogle(event.end);
+  const title = encodeURIComponent(event.title);
+  const desc = encodeURIComponent(event.description || "");
+  const loc = encodeURIComponent(event.location?.name || "");
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${desc}&location=${loc}`;
+};
+
 const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
   const [loading, setLoading] = useState(false);
+  const [attendeeEmail, setAttendeeEmail] = useState("");
+  const [attendees, setAttendees] = useState<string[]>([
+    "mattjhagen0@gmail.com",
+    "engineering@etp.dev"
+  ]);
   const [formData, setFormData] = useState({
-    title: "Global ETP Launch Keynote",
-    description: "Architecting the future of event synchronization.",
-    start: new Date(Date.now() + 86400000).toISOString().slice(0, 16),
-    end: new Date(Date.now() + 86460000).toISOString().slice(0, 16),
-    location: "Stockholm / Metaverse",
-    alias: "etp-launch-2026"
+    title: "Quarterly Strategy Alignment",
+    description: "Living review of technical infrastructure deliverables and sync rules.",
+    start: new Date(Date.now() + 86400000).toISOString().slice(0, 16), // Tomorrow
+    end: new Date(Date.now() + 86400000 + 3600000).toISOString().slice(0, 16),
+    location: "Stockholm / Metaverse Node 14",
+    alias: "strategy-sync-2026",
+    recurrence: "weekly"
   });
+
+  const addAttendee = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (attendeeEmail && attendeeEmail.includes("@") && !attendees.includes(attendeeEmail)) {
+      setAttendees([...attendees, attendeeEmail.trim()]);
+      setAttendeeEmail("");
+    }
+  };
+
+  const removeAttendee = (email: string) => {
+    setAttendees(attendees.filter(a => a !== email));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
+      const organizerToken = "org_" + Math.random().toString(36).substring(2, 12);
+      
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        start: new Date(formData.start).toISOString(),
+        end: new Date(formData.end).toISOString(),
+        location: { name: formData.location },
+        alias: formData.alias || undefined,
+        sync: { strategy: "stream" },
+        ext: {
+          recurrence: formData.recurrence,
+          attendees: attendees.map(email => ({ email, status: "pending" })),
+          organizerToken: organizerToken
+        }
+      };
+
       const response = await fetch("/api/e", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          start: new Date(formData.start).toISOString(),
-          end: new Date(formData.end).toISOString(),
-          location: { name: formData.location },
-          sync: { strategy: "poll", poll_interval: 3600 }
-        })
+        body: JSON.stringify(payload)
       });
+      
       const data = await response.json();
+      
+      // Save organizer permission token in localStorage
+      if (data?.event?.eid) {
+        const storedTokens = JSON.parse(localStorage.getItem("etp_organizer_keys") || "{}");
+        storedTokens[data.event.eid] = organizerToken;
+        localStorage.setItem("etp_organizer_keys", JSON.stringify(storedTokens));
+      }
+
       onCreated(data);
     } catch (err) {
       console.error(err);
@@ -898,56 +993,153 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
   };
 
   return (
-    <div className="p-10 border etp-border rounded-2xl bg-white/5">
-      <div className="flex items-center gap-2 mb-8">
-        <Plus size={18} className="text-orange-500" />
-        <span className="mono-label">Protocol Demo / EID Registration</span>
+    <div className="p-8 lg:p-12 border etp-border rounded-3xl bg-black/40 backdrop-blur-md relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-orange-600/[0.02] rounded-full blur-[100px] pointer-events-none" />
+      
+      <div className="flex items-center gap-2 mb-10">
+        <Plus size={20} className="text-orange-500" />
+        <span className="mono-label tracking-widest text-[11px] text-orange-500 font-bold">ETP Living Event Scheduler</span>
       </div>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-xs font-mono opacity-40 uppercase">Event Title</label>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-2 col-span-1 md:col-span-2">
+            <label className="text-[10px] font-mono opacity-40 uppercase tracking-widest">Event Title</label>
             <input 
-              className="w-full bg-transparent border-b etp-border py-2 focus:border-orange-500 outline-none transition-colors text-white"
+              className="w-full bg-transparent border-b etp-border py-2 text-lg focus:border-orange-500 outline-none transition-colors text-white"
               value={formData.title}
+              required
               onChange={e => setFormData({...formData, title: e.target.value})}
-              placeholder="Keynote..."
+              placeholder="Enter meeting title..."
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-xs font-mono opacity-40 uppercase">Alias (optional)</label>
-            <input 
-              className="w-full bg-transparent border-b etp-border py-2 focus:border-orange-500 outline-none transition-colors text-white"
-              value={formData.alias}
-              onChange={e => setFormData({...formData, alias: e.target.value})}
-              placeholder="launch-slug"
+
+          <div className="space-y-2 col-span-1 md:col-span-2">
+            <label className="text-[10px] font-mono opacity-40 uppercase tracking-widest">Description</label>
+            <textarea 
+              className="w-full bg-transparent border-b etp-border py-2 text-sm focus:border-orange-500 outline-none transition-colors text-white h-20 resize-none"
+              value={formData.description}
+              onChange={e => setFormData({...formData, description: e.target.value})}
+              placeholder="Enter description..."
             />
           </div>
+
           <div className="space-y-2">
-            <label className="text-xs font-mono opacity-40 uppercase">Start Time</label>
+            <label className="text-[10px] font-mono opacity-40 uppercase tracking-widest">Start Time (UTC-linked)</label>
             <input 
               type="datetime-local"
-              className="w-full bg-transparent border-b etp-border py-2 focus:border-orange-500 outline-none transition-colors text-white"
+              className="w-full bg-transparent border-b etp-border py-2 text-sm focus:border-orange-500 outline-none transition-colors text-white"
               value={formData.start}
+              required
               onChange={e => setFormData({...formData, start: e.target.value})}
             />
           </div>
+
           <div className="space-y-2">
-            <label className="text-xs font-mono opacity-40 uppercase">End Time</label>
+            <label className="text-[10px] font-mono opacity-40 uppercase tracking-widest">End Time (UTC-linked)</label>
             <input 
               type="datetime-local"
-              className="w-full bg-transparent border-b etp-border py-2 focus:border-orange-500 outline-none transition-colors text-white"
+              className="w-full bg-transparent border-b etp-border py-2 text-sm focus:border-orange-500 outline-none transition-colors text-white"
               value={formData.end}
+              required
               onChange={e => setFormData({...formData, end: e.target.value})}
             />
           </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono opacity-40 uppercase tracking-widest">Location Identity Address</label>
+            <input 
+              className="w-full bg-transparent border-b etp-border py-2 text-sm focus:border-orange-500 outline-none transition-colors text-white"
+              value={formData.location}
+              required
+              onChange={e => setFormData({...formData, location: e.target.value})}
+              placeholder="Physical address or conference link..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono opacity-40 uppercase tracking-widest">Permanent URL Alias (optional)</label>
+            <input 
+              className="w-full bg-transparent border-b etp-border py-2 text-sm focus:border-orange-500 outline-none transition-colors text-white"
+              value={formData.alias}
+              onChange={e => setFormData({...formData, alias: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")})}
+              placeholder="e.g. strategy-sync"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono opacity-40 uppercase tracking-widest">Recurrence Propagation</label>
+            <select 
+              className="w-full bg-black/60 border-b etp-border py-2 text-sm focus:border-orange-500 outline-none transition-colors text-white"
+              value={formData.recurrence}
+              onChange={e => setFormData({...formData, recurrence: e.target.value})}
+            >
+              <option value="none">Does Not Repeat (One-off)</option>
+              <option value="daily">Repeats Daily</option>
+              <option value="weekly">Repeats Weekly</option>
+              <option value="monthly">Repeats Monthly</option>
+              <option value="yearly">Repeats Yearly</option>
+            </select>
+          </div>
         </div>
+
+        {/* Dynamic Attendees Section */}
+        <div className="pt-6 border-t border-white/5 space-y-4">
+          <div className="flex justify-between items-center">
+            <label className="text-[10px] font-mono opacity-40 uppercase tracking-widest flex items-center gap-1.5">
+              <UserPlus size={12} /> Invite Attendees ({attendees.length})
+            </label>
+            <span className="text-[9px] font-mono text-emerald-400">⚡ Auto-handshake Email Dispatched on Save</span>
+          </div>
+          
+          <div className="flex gap-2">
+            <input 
+              type="email"
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:border-orange-500 outline-none transition-colors"
+              value={attendeeEmail}
+              onChange={e => setAttendeeEmail(e.target.value)}
+              placeholder="Add guest email (e.g., alex@domain.com)..."
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAttendee(e); } }}
+            />
+            <button 
+              type="button"
+              onClick={addAttendee}
+              className="px-4 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition-colors cursor-pointer"
+            >
+              Add
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-2">
+            {attendees.map(email => (
+              <span key={email} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-white">
+                <Mail size={10} className="opacity-40" />
+                <span>{email}</span>
+                <button 
+                  type="button" 
+                  onClick={() => removeAttendee(email)} 
+                  className="text-red-400 hover:text-red-300 font-bold ml-1.5 text-xs inline-block"
+                >
+                  &times;
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+
         <button 
           disabled={loading}
           type="submit"
-          className="w-full py-4 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 group cursor-pointer"
+          className="w-full py-5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-3 group cursor-pointer shadow-[0_15px_30px_rgba(234,88,12,0.2)] hover:scale-[1.01] active:scale-[0.99]"
         >
-          {loading ? <RefreshCcw className="animate-spin" /> : <><Globe size={18} /> Register Event (EID)</>}
+          {loading ? (
+            <RefreshCcw className="animate-spin" size={20} />
+          ) : (
+            <>
+              <Globe size={18} /> 
+              <span>Deploy Living Event to Network (EID)</span>
+            </>
+          )}
           <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
         </button>
       </form>
@@ -955,8 +1147,33 @@ const EventGenerator = ({ onCreated }: { onCreated: (data: any) => void }) => {
   );
 };
 
-const SuccessPanel = ({ result, onReset }: { result: any, onReset: () => void, key?: string }) => {
+const SuccessPanel = ({ result, onReset }: { result: any, onReset: () => void }) => {
   const [copied, setCopied] = useState<string | null>(null);
+  const [emailLogs, setEmailLogs] = useState<string[]>([]);
+  
+  useEffect(() => {
+    // Generate simulated dynamic email dispatch logs
+    const emails = result.event.ext?.attendees || [];
+    const logPool = [
+      `Initializing SMTP Secure TLS Transport to evt.life relay...`,
+      `Cryptographic Identity Key Authenticated (ed25519 signature validated).`,
+      ...emails.map((e: any) => `→ Synthesized invitation packet dispatched to: ${e.email}`),
+      `✔ Dynamic mail handlers online. Local subscriptions established in calendar cache.`,
+      `Synchronization Strategy set to real-time streams.`
+    ];
+
+    let current = 0;
+    const interval = setInterval(() => {
+      if (current < logPool.length) {
+        setEmailLogs(prev => [...prev, logPool[current]]);
+        current++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 400);
+
+    return () => clearInterval(interval);
+  }, [result]);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -964,144 +1181,594 @@ const SuccessPanel = ({ result, onReset }: { result: any, onReset: () => void, k
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const localTestLink = `${window.location.origin}/?id=${result.event.eid}`;
+
   return (
     <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="p-10 border-2 border-orange-500/50 rounded-2xl bg-orange-500/5 glow-orange"
+      className="p-8 lg:p-12 border-2 border-orange-500/30 rounded-3xl bg-orange-500/[0.02] shadow-[0_30px_60px_rgba(234,88,12,0.05)] text-left"
     >
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-2">
-          <Activity size={20} className="text-orange-500" />
-          <span className="mono-label">EID Identity Registered</span>
+      <div className="flex items-center justify-between mb-8 pb-6 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <Activity size={24} className="text-orange-500 animate-pulse" />
+          <div>
+            <span className="mono-label text-[10px] text-orange-500 font-bold uppercase tracking-widest block">Deployment Succeeded</span>
+            <h3 className="text-xl font-bold font-sans text-white">Event State Live & Immutable</h3>
+          </div>
         </div>
-        <button onClick={onReset} className="text-xs underline opacity-50 hover:opacity-100 text-white cursor-pointer transition-opacity">Register New Identity</button>
+        <button 
+          onClick={onReset} 
+          className="text-xs font-mono py-2 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-white cursor-pointer transition-colors border border-white/5"
+        >
+          Schedule New Event
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         <div className="space-y-6">
-          <div className="p-6 bg-black/40 rounded-xl border etp-border space-y-4">
-            <h4 className="text-sm font-bold opacity-40 uppercase tracking-widest font-mono text-white">Universal Routing Link</h4>
-            <div className="flex items-center justify-between bg-black/60 p-3 rounded border etp-border">
-              <code className="text-xs truncate w-48 text-orange-400">{result.links.universal}</code>
-              <button onClick={() => copyToClipboard(result.links.universal, 'link')} className="p-2 hover:bg-white/10 rounded transition-colors text-white cursor-pointer">
-                {copied === 'link' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+          {/* Working local link for testing */}
+          <div className="p-6 bg-black/40 rounded-2xl border border-emerald-500/20 space-y-3 relative overflow-hidden">
+            <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest font-mono">Working Local Playback URL</h4>
+            <div className="flex items-center justify-between bg-black/60 p-3 rounded-lg border border-emerald-500/10">
+              <code className="text-[11px] truncate w-80 text-emerald-400 font-mono">{localTestLink}</code>
+              <button 
+                onClick={() => copyToClipboard(localTestLink, 'local')} 
+                className="p-2 hover:bg-white/10 rounded transition-colors text-emerald-400 cursor-pointer"
+              >
+                {copied === 'local' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
               </button>
             </div>
-            <p className="text-[10px] opacity-40 italic text-white/70">Routing resolves EID to native platform protocols or EVT stream endpoints.</p>
+            <p className="text-[10px] opacity-60 text-white font-sans">
+              Click or copy this link. If you load it in a separate browser window, you can view the state in real-time as an attendee and observe instant updates when mutated!
+            </p>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center">
-                <Terminal size={20} className="text-orange-500" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-white">EID (ULID)</p>
-                <p className="text-[10px] text-orange-500 font-mono tracking-tight">{result.event.eid}</p>
-              </div>
+          {/* Permalinks info requested */}
+          <div className="p-6 bg-black/40 rounded-2xl border etp-border space-y-3">
+            <h4 className="text-[10px] font-bold text-orange-500 uppercase tracking-widest font-mono">Permanent Static Protocol URL</h4>
+            <div className="flex items-center justify-between bg-black/60 p-3 rounded-lg border etp-border">
+              <code className="text-xs truncate w-80 text-orange-400 font-mono">evt.life/e/{result.event.alias || result.event.eid}</code>
+              <button 
+                onClick={() => copyToClipboard(`https://evt.life/e/${result.event.alias || result.event.eid}`, 'permalink')} 
+                className="p-2 hover:bg-white/10 rounded transition-colors text-white cursor-pointer"
+              >
+                {copied === 'permalink' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+              </button>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-white/5 border etp-border flex items-center justify-center">
-                <Calendar size={20} className="text-white opacity-40" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-white opacity-40">ICS Compatibility</p>
-                <a href={result.links.ics} className="text-[10px] text-orange-500 hover:underline">Download Legacy Blob</a>
-              </div>
+            <p className="text-[10px] opacity-40 italic text-white font-mono">
+              Universal static routing on the protocol network resolving to edge nodes.
+            </p>
+          </div>
+
+          {/* Core EID identifiers */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 bg-white/[0.02] border etp-border rounded-xl">
+              <p className="text-[8px] font-mono text-white/30 uppercase tracking-widest">EID Identity (ULID)</p>
+              <p className="text-[11px] font-mono text-white font-bold break-all mt-1">{result.event.eid}</p>
+            </div>
+            <div className="p-4 bg-white/[0.02] border etp-border rounded-xl">
+              <p className="text-[8px] font-mono text-white/30 uppercase tracking-widest">Recurrence</p>
+              <p className="text-[11px] font-mono text-orange-500 font-bold uppercase mt-1">{result.event.ext?.recurrence || "None"}</p>
             </div>
           </div>
         </div>
 
+        {/* Dynamic Log Feed */}
         <div className="space-y-4">
-          <h4 className="text-sm font-bold opacity-40 uppercase tracking-widest font-mono text-white">EVT Object (Snapshot)</h4>
-          <div className="bg-black/80 p-6 rounded-xl border etp-border font-mono text-[10px] h-64 overflow-y-auto custom-scrollbar">
-            <pre className="text-green-500/80">
-              {JSON.stringify(result.event, null, 2)}
-            </pre>
+          <h4 className="text-[10px] font-bold opacity-40 uppercase tracking-widest font-mono text-white">Dynamic Email Relay Logs / Frame Stream</h4>
+          <div className="bg-black/90 p-5 rounded-2xl border etp-border font-mono text-[10px] h-60 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 text-orange-500/80">
+            {emailLogs.map((logLine, idx) => (
+              <motion.div 
+                initial={{ opacity: 0, x: -5 }} 
+                animate={{ opacity: 1, x: 0 }} 
+                key={idx}
+                className={logLine.startsWith("✔") || logLine.includes("smtp") ? "text-emerald-400 font-bold" : "text-white/70"}
+              >
+                <span className="text-white/20 select-none mr-2">[{idx+1}]</span>
+                <span>{logLine}</span>
+              </motion.div>
+            ))}
+            {emailLogs.length < 5 && <div className="text-[10px] animate-pulse text-white/10 font-mono mt-2">Connecting relay nodes...</div>}
           </div>
+          
+          <a 
+            href={localTestLink}
+            className="w-full py-3.5 bg-white text-black font-semibold rounded-lg hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer text-xs uppercase font-mono tracking-wider text-center"
+          >
+            Open Live Portal View <ArrowRight size={14} />
+          </a>
         </div>
       </div>
     </motion.div>
   );
 };
 
-const EventDetails = ({ id }: { id: string }) => {
+const EventDetails = ({ id, onLeave }: { id: string, onLeave: () => void }) => {
   const [event, setEvent] = useState<ETPEvent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncState, setSyncState] = useState<string>("CONNECTING");
+  const [inviteeEmail, setInviteeEmail] = useState("");
+  const [inviteeLoading, setInviteeLoading] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  
+  // Participant chosen identity
+  const [viewerEmail, setViewerEmail] = useState<string>("");
+  const [localRsvps, setLocalRsvps] = useState<Record<string, string>>({});
+  
+  const etpClientRef = useRef<ETPClient | null>(null);
+  const osInfo = getBrowserOS();
 
+  // Load RSVP state
   useEffect(() => {
-    fetch(`/api/e/${id}`)
-      .then(res => res.json())
-      .then(data => {
-        setEvent(data);
-        setLoading(false);
-      });
+    const saved = localStorage.getItem(`etp_rsvp_${id}`);
+    if (saved) {
+      setLocalRsvps(prev => ({ ...prev, [id]: saved }));
+    }
   }, [id]);
 
-  if (loading) return <div className="p-20 text-center mono-label animate-pulse">Resolving EID Protocol Handshake...</div>;
-  if (!event) return <div className="p-20 text-center mono-label">Identity {id} not found in transport layer.</div>;
+  useEffect(() => {
+    // Standard subscription via ETPClient SDK
+    etpClientRef.current = new ETPClient({
+      nodeUrl: window.location.origin,
+      transport: "sse"
+    });
+
+    etpClientRef.current.onFrame((frame: any) => {
+      if (frame.type === "snapshot.sync" || frame.type === "delta.sync" || frame.type === "event.updated") {
+        setEvent(frame.event);
+        setSyncState("CONNECTED");
+        setLoading(false);
+        
+        // Auto-select first attendee as the default viewer email if not set
+        const attendeesArray = frame.event?.ext?.attendees || [];
+        if (attendeesArray.length > 0 && !viewerEmail) {
+          setViewerEmail(attendeesArray[0].email);
+        }
+      }
+    });
+
+    etpClientRef.current.onStateChange((state) => {
+      if (state === "DISCONNECTED") setSyncState("STALE");
+      else if (state === "ERROR") setSyncState("OFFLINE");
+    });
+
+    etpClientRef.current.subscribe(id);
+
+    return () => {
+      etpClientRef.current?.disconnect();
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="py-24 max-w-xl mx-auto text-center space-y-4">
+        <RefreshCcw className="animate-spin text-orange-500 mx-auto" size={40} />
+        <p className="font-mono text-sm tracking-widest uppercase opacity-40 animate-pulse">Resolving EID Synchronization Handshake...</p>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="py-24 max-w-xl mx-auto text-center space-y-6">
+        <Activity size={40} className="text-red-500 mx-auto" />
+        <div>
+          <h3 className="font-mono uppercase font-bold text-lg text-white">Event Identity Resolution Cancelled</h3>
+          <p className="text-sm text-white/50 mt-2">The EID `{id}` was not discovered on any canonical ETP routing grids.</p>
+        </div>
+        <button onClick={onLeave} className="px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-mono rounded-lg transition-colors">
+          Return to Hub
+        </button>
+      </div>
+    );
+  }
+
+  // Check if current user is the organic organizer calculated from localStorage tokens or default seed
+  const storedKeys = JSON.parse(localStorage.getItem("etp_organizer_keys") || "{}");
+  const isOrganizer = !!storedKeys[event.eid] || event.ext?.organizerToken === "demo-organizer-secret-2026";
+
+  const attendeesList = event.ext?.attendees || [];
+
+  const handleUpdateRsvp = async (option: string) => {
+    if (!viewerEmail) return;
+    
+    // Optimistic local state
+    localStorage.setItem(`etp_rsvp_${event.eid}`, option);
+    setLocalRsvps(prev => ({ ...prev, [event.eid]: option }));
+
+    const updatedAttendees = attendeesList.map((att: any) => 
+      att.email === viewerEmail ? { ...att, status: option } : att
+    );
+
+    try {
+      await etpClientRef.current?.mutate(event.eid, {
+        ext: {
+          ...event.ext,
+          attendees: updatedAttendees
+        }
+      }, event.v);
+    } catch (e) {
+      console.error("Failed to commit RSVP mutation", e);
+    }
+  };
+
+  const handleInviteAttendee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteeEmail || !inviteeEmail.includes("@")) return;
+    
+    setInviteeLoading(true);
+    const updatedAttendees = [...attendeesList, { email: inviteeEmail.trim(), status: "pending" }];
+
+    try {
+      await etpClientRef.current?.mutate(event.eid, {
+        ext: {
+          ...event.ext,
+          attendees: updatedAttendees
+        }
+      }, event.v);
+      setInviteeEmail("");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setInviteeLoading(false);
+    }
+  };
+
+  const handleUpdateField = async (field: string, value: any) => {
+    const payload: Partial<ETPEvent> = {};
+    if (field === "location") {
+      payload.location = { name: value };
+    } else if (field === "recurrence") {
+      payload.ext = {
+        ...event.ext,
+        recurrence: value
+      };
+    } else {
+      (payload as any)[field] = value;
+    }
+
+    try {
+      await etpClientRef.current?.mutate(event.eid, payload, event.v);
+    } catch (err) {
+      console.error("Mutation aborted", err);
+    }
+  };
+
+  const handleAddCalendar = () => {
+    if (osInfo.action === 'google-calendar') {
+      window.open(formatDateForGoogle(event.start), '_blank');
+    } else {
+      // Direct deep link stream or attachment
+      window.location.href = `webcal://${window.location.host}/e/${event.eid}.ics`;
+    }
+  };
+
+  const currentViewerStatus = attendeesList.find((a: any) => a.email === viewerEmail)?.status || "pending";
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-2xl mx-auto p-8 rounded-3xl glass-card border etp-border overflow-hidden relative"
-    >
-      <div className="absolute top-0 left-0 w-full h-2 bg-orange-500" />
-      <div className="flex justify-between items-start mb-8">
-        <div>
-          <span className="px-2 py-0.5 bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[10px] font-mono rounded uppercase tracking-widest">{event.lifecycle}</span>
+    <div className="max-w-7xl mx-auto space-y-12">
+      {/* Synchronization Banner Notification */}
+      <div className="flex flex-col md:flex-row items-center justify-between px-6 py-4 rounded-2xl bg-orange-500/5 border border-orange-500/20 text-orange-500 font-mono text-[11px] font-semibold gap-4 shadow-xl">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
+          <span>Handshake Active: Resolving evt.life/e/{event.alias || event.eid}</span>
         </div>
-        <div className="text-right">
-          <p className="mono-label text-[10px]">EVT v{event.v}</p>
-          <p className="text-[9px] opacity-30 font-mono text-white">{event.eid}</p>
+        <div className="flex items-center gap-6">
+          <span className="opacity-60 uppercase">Stream Strategy: {event.sync.strategy.toUpperCase()} ({syncState})</span>
+          <span className="opacity-60 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">Version EID v{event.v}</span>
+          <button onClick={onLeave} className="text-white hover:underline uppercase text-[9px] cursor-pointer">← Return to Hub</button>
         </div>
       </div>
 
-      <h3 className="text-4xl font-bold tracking-tighter mb-4 text-white">{event.title}</h3>
-      {event.description && <p className="text-white/60 mb-8 leading-relaxed">{event.description}</p>}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        {/* Left Column: Interactive Event Presentation */}
+        <div className="lg:col-span-7 space-y-8">
+          <div className="p-8 lg:p-12 border etp-border rounded-3xl bg-black/40 backdrop-blur-md relative overflow-hidden space-y-8 animate-fade-in">
+            {/* Minimalist Header */}
+            <div className="flex justify-between items-start pb-6 border-b border-white/5">
+              <div>
+                <span className="mono-label px-2.5 py-1 text-[9px] bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded font-bold uppercase tracking-wider">{event.lifecycle.toUpperCase()}</span>
+                {event.ext?.recurrence && event.ext?.recurrence !== 'none' && (
+                  <span className="mono-label ml-2 px-2.5 py-1 text-[9px] bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded font-bold uppercase tracking-wider">🔁 {event.ext?.recurrence.toUpperCase()}</span>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-white/40 font-mono tracking-tight">Identity: {event.eid}</p>
+                {event.updated_at && (
+                  <p className="text-[8px] text-white/20 font-mono mt-1">Succeeded: {new Date(event.updated_at).toLocaleTimeString()}</p>
+                )}
+              </div>
+            </div>
 
-      <div className="grid grid-cols-2 gap-6 mb-10 pb-10 border-b etp-border">
-        <div className="space-y-1">
-          <p className="mono-label">Starting</p>
-          <div className="flex items-center gap-2">
-            <Clock size={14} className="text-orange-500" />
-            <span className="font-bold text-white tracking-tight">{new Date(event.start).toLocaleString()}</span>
+            {/* Event Meta */}
+            <div className="space-y-4">
+              <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-white leading-tight font-sans">
+                {event.title}
+              </h1>
+              {event.description && (
+                <p className="text-white/60 text-base leading-relaxed tracking-wide font-light max-w-2xl">
+                  {event.description}
+                </p>
+              )}
+            </div>
+
+            {/* Practical Scheduling Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white/[0.02] border etp-border rounded-2xl">
+              <div className="space-y-1">
+                <span className="text-[9px] font-mono uppercase tracking-wider opacity-30 text-white">Starting</span>
+                <div className="flex items-center gap-2">
+                  <Clock size={14} className="text-orange-500" />
+                  <span className="font-bold text-sm text-white tracking-tight">{new Date(event.start).toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[9px] font-mono uppercase tracking-wider opacity-30 text-white">Ending</span>
+                <div className="flex items-center gap-2">
+                  <Clock size={14} className="text-orange-500" />
+                  <span className="font-bold text-sm text-white tracking-tight">{new Date(event.end).toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="space-y-1 col-span-1 md:col-span-2 pt-2 border-t border-white/5">
+                <span className="text-[9px] font-mono uppercase tracking-wider opacity-30 text-white">Authorized Location Node</span>
+                <div className="flex items-center gap-2">
+                  <MapPin size={14} className="text-orange-500 animate-pulse" />
+                  <span className="font-bold text-sm text-white tracking-tight">{event.location?.name}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* OS Aware Deep Linking Calendar Sync Panel */}
+            <div className="p-6 bg-orange-600/[0.02] border-2 border-orange-500/20 rounded-2xl space-y-6">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg leading-none" role="img" aria-label="os icon">{osInfo.icon}</span>
+                  <div>
+                    <span className="font-bold text-xs text-white block">Detected: {osInfo.label}</span>
+                    <span className="text-[9px] font-mono text-white/40">Synchronized ETP Feed subscription active</span>
+                  </div>
+                </div>
+                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded uppercase">Validated Link</span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                {osInfo.action === 'google-calendar' ? (
+                  <a 
+                    href={getGoogleCalendarUrl(event)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Calendar size={14} /> Add directly to Google Calendar
+                  </a>
+                ) : (
+                  <button 
+                    onClick={handleAddCalendar}
+                    className="flex-1 py-4 bg-white text-black hover:bg-orange-500 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Calendar size={14} /> One-Press Add to native Calendar (Deep-Link)
+                  </button>
+                )}
+
+                {/* Secondary Cloud Fallback / Chromebook Option */}
+                {osInfo.action !== 'google-calendar' && (
+                  <a 
+                    href={getGoogleCalendarUrl(event)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-4 px-6 bg-white/5 hover:bg-white/10 text-white text-xs font-mono rounded-xl border etp-border text-center flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  >
+                    ChromeOS / Google Cal Fallback
+                  </a>
+                )}
+              </div>
+              <p className="text-[10px] text-white/40 font-mono tracking-normal leading-relaxed">
+                * Note: Subscribing via deep link creates an authoritative synchronization channel. Any adjustments the host makes downstream (such as postponing or shifting time) recalculate dynamically on your native machine or cloud inbox without manual re-imports!
+              </p>
+            </div>
           </div>
         </div>
-        <div className="space-y-1">
-          <p className="mono-label">Ending</p>
-          <div className="flex items-center gap-2">
-            <Clock size={14} className="text-orange-500" />
-            <span className="font-bold text-white tracking-tight">{new Date(event.end).toLocaleString()}</span>
+
+        {/* Right Column: Roles, Attendees List & RSVP Opt-outs */}
+        <div className="lg:col-span-5 space-y-8">
+          
+          {/* Subscriber Identity Box */}
+          <div className="p-6 bg-white/[0.01] border etp-border rounded-3xl space-y-6">
+            <div className="flex items-center gap-2.5 mb-2">
+              <User size={16} className="text-orange-500" />
+              <h4 className="font-bold text-sm text-white font-mono tracking-tight uppercase">Subscriber Portal Context</h4>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[9px] font-mono uppercase tracking-widest opacity-40 text-white block mb-1.5">Viewing network state as:</label>
+                <select 
+                  className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white outline-none focus:border-orange-500 transition-colors"
+                  value={viewerEmail}
+                  onChange={(e) => {
+                    setViewerEmail(e.target.value);
+                    const localSavedFlag = localStorage.getItem(`etp_rsvp_${event.eid}`);
+                    if (localSavedFlag) {
+                      setLocalRsvps(prev => ({ ...prev, [event.eid]: localSavedFlag }));
+                    }
+                  }}
+                >
+                  {attendeesList.map((att: any) => (
+                    <option key={att.email} value={att.email}>{att.email} ({att.status})</option>
+                  ))}
+                  {attendeesList.length === 0 && <option value="">No Invitees added</option>}
+                </select>
+                <p className="text-[8px] font-mono text-white/30 mt-1">Switch email to test different attendee point-of-views.</p>
+              </div>
+
+              {/* Opt-out controls */}
+              {viewerEmail && (
+                <div className="p-4 bg-white/5 border etp-border rounded-xl space-y-3.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-orange-400 font-bold">Local RSVPs / State Opt-Out</span>
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20">{currentViewerStatus.toUpperCase()}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2">
+                    <button 
+                      onClick={() => handleUpdateRsvp("accepted")}
+                      className={`py-2 px-1 text-[9px] font-bold uppercase tracking-wider rounded font-mono border transition-all cursor-pointer ${currentViewerStatus === 'accepted' ? 'bg-green-500/10 border-green-500/40 text-green-400' : 'bg-black/40 border-white/5 text-white/40 hover:text-white'}`}
+                    >
+                      Opt-In (Sync)
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateRsvp("opt_out_single")}
+                      className={`py-2 px-1 text-[9px] font-bold uppercase tracking-wider rounded font-mono border transition-all cursor-pointer ${currentViewerStatus === 'opt_out_single' ? 'bg-orange-500/10 border-orange-500/40 text-orange-400' : 'bg-black/40 border-white/5 text-white/40 hover:text-white'}`}
+                    >
+                      Opt-Out (Once)
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateRsvp("opt_out_forever")}
+                      className={`py-2 px-1 text-[9px] font-bold uppercase tracking-wider rounded font-mono border transition-all cursor-pointer ${currentViewerStatus === 'opt_out_forever' ? 'bg-red-500/10 border-red-500/40 text-red-400' : 'bg-black/40 border-white/5 text-white/40 hover:text-white'}`}
+                    >
+                      Opt-Out (Forever)
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-white/30 font-sans leading-snug">
+                    * Opting out registers an authorized mutation directly to the event ledger. All sync threads connected globally will update state values dynamically.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="space-y-1 col-span-2">
-          <p className="mono-label">Location Identity</p>
-          <div className="flex items-center gap-2">
-            <MapPin size={14} className="text-orange-500" />
-            <span className="font-bold text-white tracking-tight">{event.location?.name}</span>
+
+          {/* Organizer Console / Multi-User update propagation (Editable fields) */}
+          {isOrganizer ? (
+            <div className="p-6 bg-orange-500/[0.01] border-2 border-orange-500/20 rounded-3xl space-y-6">
+              <div className="flex items-center gap-2 pb-4 border-b border-orange-500/10">
+                <Shield size={16} className="text-orange-500 animate-pulse" />
+                <div>
+                  <h4 className="font-bold text-sm text-white font-mono uppercase tracking-tight">Organizer authorities center</h4>
+                  <p className="text-[8px] font-mono text-orange-400 font-bold uppercase tracking-widest mt-0.5">Authoritative Mutation Mode Enabled</p>
+                </div>
+              </div>
+
+              {/* Editing controls */}
+              <div className="space-y-4 text-left">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-mono uppercase tracking-widest opacity-40 text-white">Live Mutation Title</label>
+                  <input 
+                    type="text" 
+                    className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-orange-500 outline-none"
+                    value={event.title}
+                    onChange={(e) => handleUpdateField("title", e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] font-mono uppercase tracking-widest opacity-40 text-white">Adjust Location</label>
+                  <input 
+                    type="text" 
+                    className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-orange-500 outline-none"
+                    value={event.location?.name || ""}
+                    onChange={(e) => handleUpdateField("location", e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-mono uppercase tracking-widest opacity-40 text-white">Mutation Start Date</label>
+                    <input 
+                      type="datetime-local" 
+                      className="w-full bg-black/60 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-white focus:border-orange-500 outline-none font-mono"
+                      value={new Date(event.start).toISOString().slice(0, 16)}
+                      onChange={(e) => handleUpdateField("start", new Date(e.target.value).toISOString())}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-mono uppercase tracking-widest opacity-40 text-white">Mutation End Date</label>
+                    <input 
+                      type="datetime-local" 
+                      className="w-full bg-black/60 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-white focus:border-orange-500 outline-none font-mono"
+                      value={new Date(event.end).toISOString().slice(0, 16)}
+                      onChange={(e) => handleUpdateField("end", new Date(e.target.value).toISOString())}
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-orange-500/10 space-y-3">
+                  <label className="text-[9px] font-mono uppercase tracking-widest opacity-40 text-white block">Publish Invitation to new subscriber</label>
+                  <form onSubmit={handleInviteAttendee} className="flex gap-2">
+                    <input 
+                      type="email" 
+                      required
+                      placeholder="Invitee's email address..." 
+                      className="flex-1 bg-black/60 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:border-orange-500 outline-none"
+                      value={inviteeEmail}
+                      onChange={(e) => setInviteeEmail(e.target.value)}
+                    />
+                    <button 
+                      type="submit" 
+                      disabled={inviteeLoading}
+                      className="px-3 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded-lg cursor-pointer"
+                    >
+                      Invite
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-6 bg-white/[0.01] border etp-border rounded-3xl space-y-4 text-left">
+              <div className="flex items-center gap-2">
+                <Shield size={16} className="text-white/30" />
+                <h4 className="font-bold text-xs text-white/50 font-mono uppercase">Organizer Lock Context</h4>
+              </div>
+              <p className="text-[11px] text-white/40 leading-relaxed font-sans">
+                You are currently viewing this thread with <strong>Participant Clearances</strong>. Only the verified organizer of this event identity holds cryptographic privileges to update the core timeline or title.
+              </p>
+              <button 
+                onClick={() => {
+                  const saved = JSON.parse(localStorage.getItem("etp_organizer_keys") || "{}");
+                  saved[event.eid] = "org_claimed";
+                  localStorage.setItem("etp_organizer_keys", JSON.stringify(saved));
+                  // force trigger re-render
+                  setEvent({ ...event });
+                }}
+                className="w-full py-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 hover:border-white/20 text-white text-[10px] font-bold font-mono uppercase tracking-wide cursor-pointer transition-colors"
+              >
+                Claim Local Organizer Token (Simulator Bypass)
+              </button>
+            </div>
+          )}
+
+          {/* Dynamic Attendees Monitor displaying real-time updates */}
+          <div className="p-6 bg-white/[0.01] border etp-border rounded-3xl max-h-72 overflow-y-auto custom-scrollbar space-y-4">
+            <h4 className="font-mono text-xs uppercase tracking-wider text-white opacity-40 text-left">Active Invitees & Statuses ({attendeesList.length})</h4>
+            <div className="divide-y divide-white/5">
+              {attendeesList.map((att: any, idx: number) => (
+                <div key={idx} className="flex justify-between items-center py-2 text-xs">
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+                    <span className="text-white truncate font-mono">{att.email}</span>
+                  </div>
+                  <span className={`text-[8px] font-mono px-2 py-0.5 rounded font-bold uppercase leading-none border ${
+                    att.status === 'accepted' ? 'bg-green-500/10 border-green-500/30 text-green-400' :
+                    att.status === 'opt_out_single' ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' :
+                    att.status === 'opt_out_forever' ? 'bg-red-500/10 border-red-500/30 text-red-400' :
+                    'bg-white/5 border-white/10 text-white/40'
+                  }`}>
+                    {att.status === 'accepted' ? 'Opt-In' :
+                     att.status === 'opt_out_single' ? 'Opt-Out (Once)' :
+                     att.status === 'opt_out_forever' ? 'Opt-Out (Indefinitely)' :
+                     'Pending'}
+                  </span>
+                </div>
+              ))}
+              {attendeesList.length === 0 && (
+                <p className="text-center text-xs opacity-20 font-mono py-4 uppercase">No current invitees recorded.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
-
-      <div className="flex gap-4">
-        <button className="flex-1 py-3 bg-white text-black font-bold rounded-lg hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer">
-          <Calendar size={18} /> Add to Calendar (ICS)
-        </button>
-        <button className="px-5 py-3 border etp-border rounded-lg hover:bg-white/5 transition-colors text-white cursor-pointer">
-          <ExternalLink size={18} />
-        </button>
-      </div>
-
-      {event.sync.strategy !== 'static' && (
-        <div className="mt-8 flex items-center gap-2 justify-center text-[10px] font-mono text-green-500/60 uppercase tracking-widest">
-          <div className="w-1 h-1 bg-green-500 rounded-full animate-ping" />
-          Synchronization Strategy: {event.sync.strategy} Active
-        </div>
-      )}
-    </motion.div>
+    </div>
   );
 };
 

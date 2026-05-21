@@ -20,6 +20,53 @@ const eventStore = new Map<string, ETPEvent>();
 const deltaHistory = new Map<string, any[]>(); // Stores deltas for replay
 const processedMutations = new Set<string>(); // For idempotency
 
+// Precompute and seed default recurring event for instant testing
+const DEFAULT_EVENT_ID = "evt_01HV2W3J9K4Z7X5M2Y8Q1R0S3N";
+const seedDefaultEvent = () => {
+  const baseUrl = process.env.APP_URL || "http://localhost:3000";
+  const now = new Date().toISOString();
+  
+  const defaultEvent: ETPEvent = {
+    eid: DEFAULT_EVENT_ID,
+    origin: baseUrl,
+    alias: "demo-sync",
+    v: 1,
+    created_at: now,
+    updated_at: now,
+    lifecycle: "scheduled",
+    proto: "0.1",
+    title: "Weekly Engineering sync (ETP Demo)",
+    description: "Aligning on the Event Transport Protocol (ETP) draft updates and scheduling reference implementations.",
+    start: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+    end: new Date(Date.now() + 7200000).toISOString(),   // 2 hours from now
+    timezone: "UTC",
+    location: {
+      name: "Metaverse / Stockholm E-Node 4"
+    },
+    sync: {
+      strategy: "stream",
+      stream_url: `${baseUrl}/api/e/${DEFAULT_EVENT_ID}/stream`,
+      poll_interval: 3600
+    },
+    auth: {
+      signature: "etp-initial-seeded-signature-01",
+      method: "ed25519"
+    },
+    ext: {
+      recurrence: "weekly",
+      attendees: [
+        { email: "organizer@evt.life", status: "accepted" },
+        { email: "mattjhagen0@gmail.com", status: "pending" },
+        { email: "engineering@etp.dev", status: "accepted" }
+      ],
+      organizerToken: "demo-organizer-secret-2026"
+    }
+  };
+  eventStore.set(DEFAULT_EVENT_ID, defaultEvent);
+  deltaHistory.set(DEFAULT_EVENT_ID, [{ type: 'event.created', v: 1, eid: DEFAULT_EVENT_ID, event: defaultEvent }]);
+};
+seedDefaultEvent();
+
 // Generic subscriber type for transport neutrality
 type ETPHandler = (data: any) => void;
 const subscribers = new Map<string, Set<ETPHandler>>();
