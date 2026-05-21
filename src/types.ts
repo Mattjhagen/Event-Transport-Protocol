@@ -20,8 +20,8 @@ export const ETPEventLifecycle = z.enum([
 export type ETPEventLifecycle = z.infer<typeof ETPEventLifecycle>;
 
 export const ETPEventSchema = z.object({
-  /** EID: Immutable Event Identity (ULID strongly recommended, prefixed with evt_) */
-  eid: z.string().regex(/^evt_[0-9A-HJKMNP-TV-Z]{26}$/),
+  /** EID: Immutable Event Identity (ULID or self-contained base64-gzipped pattern) */
+  eid: z.string().regex(/^evt_([0-9A-HJKMNP-TV-Z]{26}|c_[a-zA-Z0-9+/=_-]+)$/),
   
   /** Origin: The canonical authority node that manages this object */
   origin: z.string().url(),

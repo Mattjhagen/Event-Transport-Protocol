@@ -94,6 +94,88 @@ function signPayload(payload: any): string {
   return crypto.createHmac("sha256", "etp-demo-secret").update(content).digest("hex");
 }
 
+function encodeEventToId(body: any): string {
+  const compact = {
+    t: body.title,
+    d: body.description,
+    s: body.start,
+    e: body.end,
+    l: body.location?.name,
+    g: body.lifecycle || "scheduled",
+    ts: body.timezone || "UTC",
+    a: body.ext?.recurrence || body.recurrence,
+    at: body.ext?.attendees?.map((a: any) => ({ m: a.email, s: a.status })) || []
+  };
+  const str = JSON.stringify(compact);
+  const base64 = Buffer.from(str, "utf-8").toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  return `evt_c_${base64}`;
+}
+
+function decodeEventFromId(eid: string, baseUrl: string): ETPEvent | null {
+  if (!eid.startsWith("evt_c_")) return null;
+  try {
+    const base64 = eid.substring(6)
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const jsonStr = Buffer.from(padded, "base64").toString("utf-8");
+    const compact = JSON.parse(jsonStr);
+    
+    const now = new Date().toISOString();
+    return {
+      eid,
+      origin: baseUrl,
+      v: 1,
+      created_at: now,
+      updated_at: now,
+      lifecycle: compact.g || "scheduled",
+      proto: "0.1",
+      title: compact.t || "Untitled Event",
+      description: compact.d || "",
+      start: compact.s,
+      end: compact.e,
+      timezone: compact.ts || "UTC",
+      location: compact.l ? { name: compact.l } : undefined,
+      sync: {
+        strategy: "stream",
+        stream_url: `${baseUrl}/api/e/${eid}/stream`,
+        poll_interval: 3600
+      },
+      auth: {
+        signature: "stateless-decoded-sig",
+        method: "ed25519"
+      },
+      ext: {
+        recurrence: compact.a,
+        attendees: compact.at ? compact.at.map((at: any) => ({ email: at.m, status: at.s })) : []
+      }
+    };
+  } catch (err) {
+    console.error("Failed to decode stateless event ID:", err);
+    return null;
+  }
+}
+
+function findEvent(id: string, baseUrl: string): ETPEvent | undefined {
+  let event = eventStore.get(id);
+  if (event) return event;
+  
+  // Try mapping by alias
+  event = Array.from(eventStore.values()).find(e => e.alias === id);
+  if (event) return event;
+
+  // Try decoding as a stateless self-contained ID
+  if (id.startsWith("evt_c_")) {
+    const decoded = decodeEventFromId(id, baseUrl);
+    if (decoded) return decoded;
+  }
+  
+  return undefined;
+}
+
 /**
  * --- ETP PROTOCOL METADATA ---
  */
@@ -140,7 +222,9 @@ app.get("/api/bridges", (c) => {
 // GET /api/e/:id/stream: SSE Transport Binding
 app.get("/api/e/:id/stream", (c) => {
   const id = c.req.param("id");
-  const event = eventStore.get(id);
+  const reqUrl = new URL(c.req.url);
+  const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
+  const event = findEvent(id, baseUrl);
   const sinceVersion = parseInt(c.req.query("since") || c.req.header("Last-Event-ID") || "0");
   
   if (!event) return c.json({ error: "Event not found" }, 404);
@@ -193,7 +277,7 @@ app.get("/api/e/:id/stream", (c) => {
 app.post("/api/e", async (c) => {
   const body = await c.req.json();
   
-  const eid = `evt_${ulid()}`;
+  const eid = encodeEventToId(body);
   const now = new Date().toISOString();
   
   // Dynamically determine the base URL from the incoming request to ensure it's a valid absolute URL matching the environment
@@ -262,11 +346,14 @@ app.patch("/api/e/:id", async (c) => {
   const body = await c.req.json();
   const mutationId = c.req.header("X-Mutation-ID") || body.mutation_id;
   
+  const reqUrl = new URL(c.req.url);
+  const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
+  
   if (mutationId && processedMutations.has(mutationId)) {
-    return c.json(eventStore.get(id), 200, { "X-ETP-Idempotent": "true" });
+    return c.json(findEvent(id, baseUrl), 200, { "X-ETP-Idempotent": "true" });
   }
 
-  const existing = eventStore.get(id);
+  const existing = findEvent(id, baseUrl);
   if (!existing) return c.json({ error: "Event not found" }, 404);
 
   // Strict Version Enforcement
@@ -408,12 +495,9 @@ function setupWebSocket(server: any) {
  */
 app.get("/api/e/:id", (c) => {
   const id = c.req.param("id");
-  let event = eventStore.get(id);
-
-  // Simple alias lookup (if not found by ID)
-  if (!event) {
-    event = Array.from(eventStore.values()).find(e => e.alias === id);
-  }
+  const reqUrl = new URL(c.req.url);
+  const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
+  let event = findEvent(id, baseUrl);
   
   if (!event) return c.json({ error: "Event not found" }, 404);
   
@@ -435,11 +519,9 @@ app.get("/api/e/:id", (c) => {
 
 app.get("/e/:id", (c) => {
   const id = c.req.param("id");
-  let event = eventStore.get(id);
-  
-  if (!event) {
-    event = Array.from(eventStore.values()).find(e => e.alias === id);
-  }
+  const reqUrl = new URL(c.req.url);
+  const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
+  let event = findEvent(id, baseUrl);
 
   if (!event) return c.text("Event Identity not found", 404);
 
@@ -469,7 +551,9 @@ app.get("/e/:id", (c) => {
 
 app.get("/e/:id.ics", (c) => {
   const id = c.req.param("id");
-  const event = eventStore.get(id);
+  const reqUrl = new URL(c.req.url);
+  const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
+  const event = findEvent(id, baseUrl);
   
   if (!event) return c.text("Not found", 404);
 
@@ -527,3 +611,5 @@ async function main() {
 }
 
 main();
+
+export default app;
