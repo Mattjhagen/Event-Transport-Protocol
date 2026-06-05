@@ -4,7 +4,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { stream } from "hono/streaming";
 import { ulid } from "ulid";
 import dotenv from "dotenv";
-import path from "path";
+// import path from "path";
 import { createServer as createViteServer } from "vite";
 
 import { WebSocketServer } from "ws";
@@ -231,7 +231,7 @@ app.get("/api/capabilities", (c) => {
   return c.json(capabilities);
 });
 
-app.get("/", (c) => {
+app.get("/node", (c) => {
   return c.html(`
 <!DOCTYPE html>
 <html>
@@ -786,41 +786,19 @@ app.get("/api/e/:id/redirect", handleUniversal);
  */
 
 async function main() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    
-    // Use Hono's middleware for Vite
-    app.all("*", async (c, next) => {
-      // Allow API and ICS routes to handle their own responses
-      if (c.req.path.startsWith("/api/") || c.req.path.endsWith(".ics") || c.req.path.startsWith("/e/")) {
-        return await next();
-      }
 
-      // Vite middleware needs standard node request/response
-      // The @hono/node-server provides access to raw objects
-      const nodeReq = (c.req as any).raw;
-      const nodeRes = (c.res as any).raw;
+  console.log("Vite disabled for testing");
 
-      if (!nodeReq || !nodeRes) return await next();
+  const port = Number(process.env.PORT) || 8081;
 
-      const res = await new Promise<any>((resolve) => {
-        vite.middlewares(nodeReq, nodeRes, resolve);
-      });
-      return res;
-    });
-  } else {
-    app.use("*", serveStatic({ root: "./dist" }));
-  }
-
-const port = Number(process.env.PORT) || 8081;
   console.log(`ETP Hono Router running at http://localhost:${port}`);
-  
+
   const server = serve({
+
     fetch: app.fetch,
+
     port: port
+
   });
 
   setupWebSocket(server);
