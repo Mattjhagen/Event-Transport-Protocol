@@ -231,77 +231,6 @@ app.get("/api/capabilities", (c) => {
   return c.json(capabilities);
 });
 
-app.get("/", (c) => {
-  return c.html(`
-<!DOCTYPE html>
-<html>
-<head>
-  <title>EVT.life</title>
-  <style>
-    body {
-      background: #0f172a;
-      color: #e2e8f0;
-      font-family: Inter, Arial, sans-serif;
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 40px 20px;
-      line-height: 1.6;
-    }
-
-    .card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 16px;
-      padding: 32px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    }
-
-    h1 {
-      margin-top: 0;
-      color: white;
-    }
-
-    a {
-      color: #38bdf8;
-      text-decoration: none;
-    }
-
-    .button {
-      display: inline-block;
-      padding: 12px 18px;
-      margin-right: 12px;
-      margin-top: 12px;
-      background: #2563eb;
-      color: white;
-      border-radius: 10px;
-      text-decoration: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>EVT.life</h1>
-
-    <p>Event Transport Protocol Reference Node</p>
-
-    <p>
-      Decentralized event identity, synchronization,
-      federation, and transport.
-    </p>
-
-    <a class="button" href="/api/capabilities">
-      Capabilities
-    </a>
-
-    <a class="button" href="/e/evt_01HV2W3J9K4Z7X5M2Y8Q1R0S3N">
-      Demo Event
-    </a>
-  </div>
-</body>
-</html>
-`);
-});
-
 app.get("/api/bridges", (c) => {
   const bridges = [
     {
@@ -733,8 +662,8 @@ code {
   </p>
 
   <p>
-<a class="button" href="/calendar/${event.eid}">
-  Add to  Calendar
+<a class="button" href="/e/${event.eid}.ics">
+  Download Calendar
 </a>
   </p>
 </body>
@@ -742,33 +671,23 @@ code {
 `);
 };
 
+app.get("/e/:id", handleUniversal);
+app.get("/api/e/:id/redirect", handleUniversal);
 
 /**
  * --- ICS COMPATIBILITY LAYER ---
  */
 
 const handleICS = (c: any) => {
-  console.log("PARAMS:", c.req.param());
-
-const rawId =
-  c.req.param("id") ||
-  c.req.param("id.ics") ||
-  "";
-
-const id = rawId.replace(/\.ics$/i, "");
-
-console.log("RAW ICS ID:", rawId);
-console.log("ICS ID:", id);
-
-const reqUrl = new URL(c.req.url);
- 
- const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
+  const id = c.req.param("id");
+  const reqUrl = new URL(c.req.url);
+  const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
   const event = findEvent(id, baseUrl);
-
+  
   if (!event) return c.text("Not found", 404);
 
   const ics = generateICS(event);
-
+  
   return c.text(ics, 200, {
     "Content-Type": "text/calendar",
     "Content-Disposition": `attachment; filename="${id}.ics"`
@@ -777,9 +696,6 @@ const reqUrl = new URL(c.req.url);
 
 app.get("/e/:id.ics", handleICS);
 app.get("/api/e/:id.ics", handleICS);
-app.get("/calendar/:id", handleICS);
-app.get("/e/:id", handleUniversal);
-app.get("/api/e/:id/redirect", handleUniversal);
 
 /**
  * --- DEV SERVER / STATIC ASSETS ---
