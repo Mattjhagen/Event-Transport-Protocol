@@ -1,11 +1,8 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { serveStatic } from "@hono/node-server/serve-static";
 import { stream } from "hono/streaming";
 import { ulid } from "ulid";
 import dotenv from "dotenv";
-// import path from "path";
-import { createServer as createViteServer } from "vite";
 
 import { WebSocketServer } from "ws";
 import crypto from "crypto";
