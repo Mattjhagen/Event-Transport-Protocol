@@ -4,7 +4,6 @@ import { stream } from "hono/streaming";
 import { ulid } from "ulid";
 import dotenv from "dotenv";
 
-import { WebSocketServer } from "ws";
 import crypto from "crypto";
 import { ETPEventSchema, ETPEvent, ETPCapabilities, ETPNodeIdentity } from "./src/types";
 import { detectPlatform } from "./src/lib/router";
@@ -516,7 +515,8 @@ app.patch("/api/e/:id", async (c) => {
  * --- ETP WEBSOCKET BINDING ---
  */
 
-function setupWebSocket(server: any) {
+async function setupWebSocket(server: any) {
+  const { WebSocketServer } = await import("ws");
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (request: any, socket: any, head: any) => {
@@ -798,7 +798,7 @@ async function main() {
 
   });
 
-  setupWebSocket(server);
+  await setupWebSocket(server);
 }
 
 if (!process.env.VERCEL) {
