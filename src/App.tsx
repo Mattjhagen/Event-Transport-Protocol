@@ -1476,7 +1476,7 @@ const EventDetails = ({ id, onLeave }: { id: string, onLeave: () => void }) => {
 
   const handleAddCalendar = () => {
     if (osInfo.action === 'google-calendar') {
-      window.open(formatDateForGoogle(event.start), '_blank');
+      window.open(getGoogleCalendarUrl(event), '_blank');
     } else {
       // Direct deep link stream or attachment
       window.location.href = `webcal://${window.location.host}/e/${event.eid}.ics`;

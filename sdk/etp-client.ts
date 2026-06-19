@@ -61,9 +61,10 @@ export class ETPClient {
   }
 
   private connectWS(eid: string, since?: number) {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
-    this.socket = new WebSocket(`${protocol}//${host}/api/etp-ws`);
+    const node = new URL(this.nodeUrl);
+    node.protocol = node.protocol === "https:" ? "wss:" : "ws:";
+    node.pathname = "/api/etp-ws";
+    this.socket = new WebSocket(node.toString());
 
     this.socket.onopen = () => {
       this.socket?.send(JSON.stringify({ type: "etp.subscribe", eid, since: since || 0 }));
