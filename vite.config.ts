@@ -14,7 +14,7 @@ export default defineConfig({
       },
       "/e": "http://127.0.0.1:8081",
       "/calendar": "http://127.0.0.1:8081",
-      "/node": "http://127.0.0.1:8081",
+      "^/node$": "http://127.0.0.1:8081",
     },
   },
   build: {

@@ -56,7 +56,7 @@ function seedDefaultEvent() {
     ext: {
       recurrence: "weekly",
       attendees: [
-        { email: "organizer@evt.life", status: "accepted" },
+        { email: "organizer@etp.life", status: "accepted" },
         { email: "mattjhagen0@gmail.com", status: "pending" },
         { email: "engineering@etp.dev", status: "accepted" },
       ],
@@ -120,7 +120,7 @@ app.get("/node", (c) => {
 <!DOCTYPE html>
 <html>
 <head>
-  <title>EVT.life</title>
+  <title>ETP.life</title>
   <style>
     body { background: #0f172a; color: #e2e8f0; font-family: Inter, Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 40px 20px; line-height: 1.6; }
     .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
@@ -131,7 +131,7 @@ app.get("/node", (c) => {
 </head>
 <body>
   <div class="card">
-    <h1>EVT.life</h1>
+    <h1>ETP.life</h1>
     <p>Event Transport Protocol Reference Node</p>
     <p>Decentralized event identity, synchronization, federation, and transport.</p>
     <a class="button" href="/api/capabilities">Capabilities</a>

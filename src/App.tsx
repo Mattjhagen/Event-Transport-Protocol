@@ -1193,7 +1193,7 @@ const SuccessPanel = ({ result, onReset }: { result: any, onReset: () => void })
     // Generate simulated dynamic email dispatch logs
     const emails = result.event.ext?.attendees || [];
     const logPool = [
-      `Initializing SMTP Secure TLS Transport to evt.life relay...`,
+      `Initializing SMTP Secure TLS Transport to etp.life relay...`,
       `Cryptographic Identity Key Authenticated (ed25519 signature validated).`,
       ...emails.map((e: any) => `→ Synthesized invitation packet dispatched to: ${e.email}`),
       `✔ Dynamic mail handlers online. Local subscriptions established in calendar cache.`,
@@ -1267,9 +1267,9 @@ const SuccessPanel = ({ result, onReset }: { result: any, onReset: () => void })
           <div className="p-6 bg-black/40 rounded-2xl border etp-border space-y-3">
             <h4 className="text-[10px] font-bold text-orange-500 uppercase tracking-widest font-mono">Permanent Static Protocol URL</h4>
             <div className="flex items-center justify-between bg-black/60 p-3 rounded-lg border etp-border">
-              <code className="text-xs truncate w-80 text-orange-400 font-mono">evt.life/e/{result.event.alias || result.event.eid}</code>
+              <code className="text-xs truncate w-80 text-orange-400 font-mono">etp.life/e/{result.event.alias || result.event.eid}</code>
               <button 
-                onClick={() => copyToClipboard(`https://evt.life/e/${result.event.alias || result.event.eid}`, 'permalink')} 
+                onClick={() => copyToClipboard(`https://etp.life/e/${result.event.alias || result.event.eid}`, 'permalink')} 
                 className="p-2 hover:bg-white/10 rounded transition-colors text-white cursor-pointer"
               >
                 {copied === 'permalink' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
@@ -1491,7 +1491,7 @@ const EventDetails = ({ id, onLeave }: { id: string, onLeave: () => void }) => {
       <div className="flex flex-col md:flex-row items-center justify-between px-6 py-4 rounded-2xl bg-orange-500/5 border border-orange-500/20 text-orange-500 font-mono text-[11px] font-semibold gap-4 shadow-xl">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
-          <span>Handshake Active: Resolving evt.life/e/{event.alias || event.eid}</span>
+          <span>Handshake Active: Resolving etp.life/e/{event.alias || event.eid}</span>
         </div>
         <div className="flex items-center gap-6">
           <span className="opacity-60 uppercase">Stream Strategy: {event.sync.strategy.toUpperCase()} ({syncState})</span>
