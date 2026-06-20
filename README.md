@@ -51,5 +51,36 @@ curl -N https://api.eventtransport.dev/api/e/{eid}/stream
 - [**Protocol Specification**](./spec/v0.1.md)
 - [**SDK Reference**](./docs/QUICKSTART.md)
 
+## Deployment
+
+The reference ETP Node is live at **[https://eventtransport.space/](https://eventtransport.space/)**, running on a self-hosted server via Cloudflare Tunnel (no port forwarding required).
+
+### Server Management Commands
+
+SSH into the server (`ssh matty@192.168.1.73`), then use the following:
+
+```bash
+# Restart the ETP app
+systemctl --user restart etp.service
+
+# View ETP app logs (live)
+journalctl --user -u etp.service -f
+
+# Restart the Cloudflare Tunnel
+sudo systemctl restart cloudflared
+
+# View tunnel logs (live)
+sudo journalctl -u cloudflared -f
+
+# Check status of both services
+systemctl --user status etp.service
+sudo systemctl status cloudflared
+```
+
+### Architecture
+- **ETP Node** — Hono backend + React (Vite) frontend, running on `127.0.0.1:8081` via a user-level systemd service (`etp.service`)
+- **Cloudflare Tunnel** — `cloudflared` system service routes `eventtransport.space` → `127.0.0.1:8081` with no open inbound ports
+- **TLS** — Handled automatically by Cloudflare end-to-end
+
 ---
 *ETP is an open, community-driven protocol. Built for a web that is live, not static.*
